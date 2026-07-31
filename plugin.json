@@ -1,0 +1,166 @@
+{
+  "main": "index.html",
+  "logo": "logo.png",
+  "preload": "preload.js",
+  "pluginSetting": {
+    "claudePath": {
+      "title": "Claude CLI 路径",
+      "description": "Claude CLI 可执行文件路径，留空则自动检测",
+      "type": "input",
+      "default": ""
+    },
+    "defaultWorkDir": {
+      "title": "默认工作目录",
+      "description": "新建 Claude 会话时的默认工作目录",
+      "type": "input",
+      "default": ""
+    },
+    "theme": {
+      "title": "主题",
+      "description": "auto = 跟随系统，dark = 暗色，light = 亮色",
+      "type": "list",
+      "options": ["auto", "dark", "light"],
+      "default": "auto"
+    }
+  },
+  "features": [
+    {
+      "code": "claude-manager",
+      "explain": "ClaudeManager — Claude Code CLI 管理器",
+      "cmds": ["ClaudeManager", "claude", "克劳德", "AI编程", "claude manager"]
+    },
+    {
+      "code": "claude-terminal",
+      "explain": "快速打开 Claude 对话",
+      "cmds": ["Claude对话", "claude chat", "claude 对话"]
+    },
+    {
+      "code": "claude-config",
+      "explain": "Claude 配置管理",
+      "cmds": ["Claude配置", "claude config"]
+    },
+    {
+      "code": "claude-session",
+      "explain": "Claude 会话管理",
+      "cmds": ["Claude会话", "claude session"]
+    },
+    {
+      "code": "claude-open-dir",
+      "explain": "在当前目录打开 Claude",
+      "cmds": [
+        {
+          "type": "window",
+          "label": "用 Claude 打开"
+        }
+      ]
+    },
+    {
+      "code": "claude-open-file",
+      "explain": "用 Claude 打开文件",
+      "cmds": [
+        {
+          "type": "file",
+          "label": "用 Claude 打开",
+          "match": "/\\.*$/i",
+          "minLength": 1
+        }
+      ]
+    }
+  ],
+  "tools": {
+    "claude_run": {
+      "description": "在指定项目目录下使用 Claude Code 执行一个编程任务，返回 Claude 的回复结果",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "要发送给 Claude 的任务描述或问题"
+          },
+          "workDir": {
+            "type": "string",
+            "description": "项目工作目录的绝对路径（可选，默认使用上次设置的目录）"
+          },
+          "model": {
+            "type": "string",
+            "enum": ["sonnet", "opus", "haiku"],
+            "description": "使用的模型（可选，默认 sonnet）"
+          }
+        },
+        "required": ["prompt"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "description": "Claude 的回复内容"
+          },
+          "cost": {
+            "type": "number",
+            "description": "本次调用的费用（美元）"
+          }
+        }
+      }
+    },
+    "claude_session_list": {
+      "description": "列出所有 Claude Code 历史会话，包括项目路径、最后修改时间、消息数等",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "description": "会话列表",
+            "items": { "type": "string", "description": "会话 ID" }
+          }
+        }
+      }
+    },
+    "claude_config_read": {
+      "description": "读取 Claude Code 的配置文件（settings.json），包括权限规则、模型设置、hooks 等",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": ["user", "project", "local", "state"],
+            "description": "配置级别：user=用户级, project=项目级, local=本地级, state=状态文件"
+          },
+          "projectDir": {
+            "type": "string",
+            "description": "项目目录路径（level 为 project 或 local 时必填）"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "model": { "type": "string", "description": "默认模型" },
+          "permissions": { "type": "string", "description": "权限配置的 JSON 字符串" }
+        }
+      }
+    },
+    "claude_status": {
+      "description": "检查 Claude Code CLI 的安装状态，包括版本号、安装路径、是否已安装",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "installed": { "type": "boolean" },
+          "version": { "type": "string" },
+          "path": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Codely CLI (contains settings, auto-saves, extensions — not part of plugin)
+.codely-cli/
+.codely/
+
+# Codely memory file (contains API keys, gateway URLs, personal context)
+CODELY.md
+
+# Memory logs
+mem-log/
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/

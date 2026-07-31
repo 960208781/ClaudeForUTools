@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D97757"/>
+      <stop offset="100%" stop-color="#B85C3D"/>
+    </linearGradient>
+    <linearGradient id="icon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F0E6E0"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded background -->
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <!-- Claude-style "C" shape -->
+  <path d="M 88 36 C 78 28 66 24 54 24 C 36 24 22 38 22 56 C 22 74 36 88 54 88 C 66 88 78 84 88 76 L 78 66 C 72 72 64 75 54 75 C 43 75 35 67 35 56 C 35 45 43 37 54 37 C 64 37 72 40 78 46 Z" fill="url(#icon)"/>
+  <!-- Terminal cursor -->
+  <rect x="92" y="84" width="14" height="4" rx="2" fill="#FFFFFF" opacity="0.8"/>
+  <rect x="92" y="92" width="8" height="4" rx="2" fill="#FFFFFF" opacity="0.5"/>
+</svg>

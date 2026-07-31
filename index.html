@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Manager</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/terminal.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">🤖</div>
+      <div class="nav-item active" data-page="dashboard" title="仪表盘">
+        <i class="nav-icon">🏠</i>
+        <span class="nav-label">仪表盘</span>
+      </div>
+      <div class="nav-item" data-page="terminal" title="对话">
+        <i class="nav-icon">💬</i>
+        <span class="nav-label">对话</span>
+      </div>
+      <div class="nav-item" data-page="model" title="模型">
+        <i class="nav-icon">🧠</i>
+        <span class="nav-label">模型</span>
+      </div>
+      <div class="nav-item" data-page="config" title="配置">
+        <i class="nav-icon">⚙️</i>
+        <span class="nav-label">配置</span>
+      </div>
+      <div class="nav-item" data-page="mcp" title="MCP">
+        <i class="nav-icon">🔌</i>
+        <span class="nav-label">MCP 服务器</span>
+      </div>
+      <div class="nav-item" data-page="hooks" title="Hooks">
+        <i class="nav-icon">🪝</i>
+        <span class="nav-label">Hooks</span>
+      </div>
+      <div class="nav-item" data-page="commands" title="命令">
+        <i class="nav-icon">📝</i>
+        <span class="nav-label">自定义命令</span>
+      </div>
+      <div class="nav-item" data-page="skills" title="Skills">
+        <i class="nav-icon">✨</i>
+        <span class="nav-label">Skills</span>
+      </div>
+      <div class="nav-item" data-page="sessions" title="会话">
+        <i class="nav-icon">📂</i>
+        <span class="nav-label">会话历史</span>
+      </div>
+      <div class="nav-item" data-page="gateway" title="网关">
+        <i class="nav-icon">🌐</i>
+        <span class="nav-label">网关信息</span>
+      </div>
+      <div class="nav-item" data-page="monitor" title="监控">
+        <i class="nav-icon">📊</i>
+        <span class="nav-label">监控</span>
+      </div>
+      <div class="nav-item" data-page="tips" title="最佳实践">
+        <i class="nav-icon">💡</i>
+        <span class="nav-label">最佳实践</span>
+      </div>
+      <div class="nav-item" data-page="setup" title="设置">
+        <i class="nav-icon">🔧</i>
+        <span class="nav-label">安装与诊断</span>
+      </div>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-toggle" id="sidebarToggle" title="展开/收起侧边栏">
+        <span id="toggleIcon">◀</span>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-title" id="pageTitle">仪表盘</div>
+        <div class="topbar-spacer"></div>
+        <div class="topbar-status" id="topbarStatus"></div>
+      </header>
+
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/terminal.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/mcp.js"></script>
+  <script src="js/hooks.js"></script>
+  <script src="js/commands.js"></script>
+  <script src="js/skills.js"></script>
+  <script src="js/sessions.js"></script>
+  <script src="js/monitor.js"></script>
+  <script src="js/tips.js"></script>
+  <script src="js/gateway.js"></script>
+  <script src="js/setup.js"></script>
+</body>
+</html>
