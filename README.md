@@ -126,11 +126,11 @@ npm install -g @anthropic-ai/claude-code
 ┌─────────────────────────────────────────────────┐
 │                  uTools 插件                      │
 ├─────────────────────────────────────────────────┤
-│  index.html  ←  主界面入口                        │
-│  css/        ←  main.css + terminal.css           │
-│  js/         ←  17 个模块化 JS 文件               │
-│  preload.js  ←  Node.js 原生能力桥接               │
-│  plugin.json ←  插件配置 + AI Agent 工具定义       │
+│  dist/index.html  ←  主界面入口                    │
+│  dist/css/        ←  main.css + terminal.css       │
+│  dist/js/         ←  17 个模块化 JS 文件             │
+│  dist/preload.js  ←  Node.js 原生能力桥接           │
+│  dist/plugin.json ←  插件配置 + AI Agent 工具定义     │
 ├─────────────────────────────────────────────────┤
 │  preload.js 暴露的 API：                          │
 │  • findClaudePath()  — 自动检测 CLI 路径           │
