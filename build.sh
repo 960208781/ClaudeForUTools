@@ -1,45 +1,49 @@
 #!/bin/bash
-# uTools 插件打包脚本 — 生成干净的 dist/ 目录
+# uTools 插件打包准备脚本
+# 临时移出非插件文件（.git 等），打包完成后自动恢复
 # 用法: ./build.sh
-# 然后在 uTools 开发者工具中，打包目录选择 dist/
 
 set -e
 
 ROOT="/Users/chaoyang/WorkSpace/ClaudeForUTools"
-DIST="$ROOT/dist"
+BACKUP="$ROOT/.pack-backup"
 
-echo "📦 构建 uTools 插件包..."
+# 需要临时移出的文件/目录（不属于插件包）
+EXCLUDE=(".git" ".codely" ".codely-cli" ".gitignore" "CODELY.md" "build.sh" "dist" "mem-log" "screenshots" ".DS_Store")
 
-# 清理旧的 dist
-rm -rf "$DIST"
-mkdir -p "$DIST"
+echo "📦 准备 uTools 插件打包环境..."
 
-# 复制插件必需文件
-cp "$ROOT/index.html"     "$DIST/"
-cp "$ROOT/preload.js"     "$DIST/"
-cp "$ROOT/plugin.json"    "$DIST/"
-cp "$ROOT/logo.png"       "$DIST/"
-cp "$ROOT/logo.svg"       "$DIST/"
-cp "$ROOT/README.md"       "$DIST/"
+# 清理旧的备份
+rm -rf "$BACKUP"
+mkdir -p "$BACKUP"
 
-# 复制目录
-cp -R "$ROOT/css"          "$DIST/"
-cp -R "$ROOT/js"            "$DIST/"
-
-# 排除不需要的文件
-rm -f "$DIST/.DS_Store"
-
-# 统计大小
-SIZE=$(du -sh "$DIST" | awk '{print $1}')
-FILES=$(find "$DIST" -type f | wc -l | tr -d ' ')
+# 移出非插件文件
+for item in "${EXCLUDE[@]}"; do
+  if [ -e "$ROOT/$item" ]; then
+    mv "$ROOT/$item" "$BACKUP/"
+    echo "   移出: $item"
+  fi
+done
 
 echo ""
-echo "✅ 构建完成!"
-echo "   目录: $DIST"
-echo "   大小: $SIZE"
-echo "   文件数: $FILES"
+echo "✅ 目录已清理，仅保留插件文件"
 echo ""
 echo "📋 下一步:"
 echo "   1. 打开 uTools 开发者工具"
-echo "   2. 打包目录选择: $DIST"
-echo "   3. 版本号填写: 1.0.1 (如被拒绝需升版本号)"
+echo "   2. 打包目录选择: $ROOT"
+echo "   3. 版本号填写: 1.0.1"
+echo ""
+echo "⚠️  打包完成后，按回车键恢复文件..."
+read -r
+
+# 恢复
+for item in "${EXCLUDE[@]}"; do
+  if [ -e "$BACKUP/$item" ]; then
+    mv "$BACKUP/$item" "$ROOT/"
+    echo "   恢复: $item"
+  fi
+done
+
+rm -rf "$BACKUP"
+echo ""
+echo "✅ 文件已全部恢复!"
