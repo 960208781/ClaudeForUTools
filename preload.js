@@ -82,9 +82,16 @@ function findClaudePath() {
     candidates.push(
       path.join(getHomeDir(), ".local", "bin", "claude.exe"),
       path.join(getHomeDir(), "AppData", "Local", "Programs", "claude-code", "claude.exe"),
+      path.join(getHomeDir(), "AppData", "Local", "Programs", "claude-code", "claude"),
       path.join(getHomeDir(), "AppData", "Roaming", "npm", "claude.cmd"),
       path.join(getHomeDir(), "AppData", "Roaming", "npm", "claude.ps1"),
+      path.join(getHomeDir(), "AppData", "Local", "Microsoft", "WinGet", "Packages", "Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe", "claude.exe"),
     );
+    // Program Files 路径（系统级安装）
+    const programFiles = process.env["ProgramFiles"] || "C:\\Program Files";
+    candidates.push(path.join(programFiles, "claude-code", "claude.exe"));
+    const localAppData = process.env["LOCALAPPDATA"] || path.join(getHomeDir(), "AppData", "Local");
+    candidates.push(path.join(localAppData, "claude-code", "claude.exe"));
   }
 
   for (const candidate of candidates) {
@@ -1299,10 +1306,170 @@ window.claudeAPI = {
   getEnvVars,
   getAllEnvVars,
 
-  // 执行命令（供 setup 页面安装使用）
-  execCommand: (command, callback) => {
-    exec(command, { timeout: 120000 }, (err, stdout, stderr) => {
-      callback({ error: err ? err.message : null, stdout, stderr });
+  // 执行命令（简版 — 供 setup 页面等仅需要最终结果的场景）
+  execCommand: (command, options, callback) => {
+    if (typeof options === "function") {
+      callback = options;
+      options = {};
+    }
+    options = options || {};
+    window.claudeAPI.execCommandStream(command, options, (event) => {
+      if (event.type === "done") {
+        callback({
+          error: event.code !== 0 ? `进程退出码: ${event.code}` : null,
+          stdout: event.stdout,
+          stderr: event.stderr,
+        });
+      }
+    });
+  },
+
+  // 流式执行命令 — 实时回调 stdout/stderr，安装过程可见
+  // options: { shell?: "cmd"|"powershell", timeout?: number, env?: object }
+  // onEvent: (event) => void — event.type = "stdout"|"stderr"|"done"|"error"
+  execCommandStream: (command, options, onEvent) => {
+    if (typeof options === "function") {
+      onEvent = options;
+      options = {};
+    }
+    options = options || {};
+    const timeout = options.timeout || 300000;
+    const extraEnv = options.env || {};
+    const mergedEnv = { ...process.env, ...extraEnv };
+
+    const startProc = (exe, args, opts) => {
+      const proc = spawn(exe, args, opts);
+      let stdout = "";
+      let stderr = "";
+      let done = false;
+
+      const timer = setTimeout(() => {
+        try { proc.kill("SIGTERM"); } catch (e) {}
+        if (!done) {
+          done = true;
+          onEvent({ type: "error", data: "命令执行超时（5分钟）" });
+          onEvent({ type: "done", code: -1, stdout, stderr });
+        }
+      }, timeout);
+
+      proc.stdout.on("data", (d) => {
+        const text = d.toString("utf-8");
+        stdout += text;
+        onEvent({ type: "stdout", data: text });
+      });
+      proc.stderr.on("data", (d) => {
+        const text = d.toString("utf-8");
+        stderr += text;
+        onEvent({ type: "stderr", data: text });
+      });
+      proc.on("close", (code) => {
+        clearTimeout(timer);
+        if (!done) {
+          done = true;
+          onEvent({ type: "done", code, stdout, stderr });
+        }
+      });
+      proc.on("error", (err) => {
+        clearTimeout(timer);
+        if (!done) {
+          done = true;
+          onEvent({ type: "error", data: err.message });
+          onEvent({ type: "done", code: -1, stdout, stderr });
+        }
+      });
+    };
+
+    if (process.platform === "win32" && options.shell === "powershell") {
+      startProc("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command], {
+        cwd: getHomeDir(),
+        env: mergedEnv,
+        shell: false,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } else {
+      startProc(command, [], {
+        cwd: getHomeDir(),
+        env: mergedEnv,
+        shell: true,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    }
+  },
+
+  // 检查命令是否存在 — 返回 { found: boolean, path: string|null }
+  checkCommandExists: (cmd) => {
+    try {
+      const checkCmd = process.platform === "win32"
+        ? `where ${cmd}`
+        : `which ${cmd}`;
+      const result = execSync(checkCmd, { encoding: "utf-8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] }).trim();
+      const foundPath = result.split("\n")[0].trim().replace(/\r/g, "");
+      return { found: !!foundPath, path: foundPath || null };
+    } catch (e) {
+      return { found: false, path: null };
+    }
+  },
+
+  // 测试网络连通性 — 返回 { ok: boolean, latency?: number, error?: string }
+  // proxy 参数可选，如 "http://127.0.0.1:7890"
+  testNetworkUrl: (url, timeoutMs, proxy) => {
+    timeoutMs = timeoutMs || 10000;
+    const https = require("node:https");
+    const http = require("node:http");
+    const urlObj = new URL(url);
+    const client = urlObj.protocol === "https:" ? https : http;
+
+    // 代理优先级: 参数 > 环境变量
+    const proxyUrl = proxy || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.https_proxy || process.env.http_proxy;
+
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const options = {
+        hostname: urlObj.hostname,
+        port: urlObj.port || (urlObj.protocol === "https:" ? 443 : 80),
+        path: urlObj.pathname + (urlObj.search || ""),
+        method: "HEAD",
+        timeout: timeoutMs,
+      };
+
+      // 如果有代理，通过 HTTP CONNECT 隧道连接
+      if (proxyUrl) {
+        try {
+          const pUrl = new URL(proxyUrl);
+          const tunnelReq = (pUrl.protocol === "https:" ? https : http).request({
+            hostname: pUrl.hostname,
+            port: parseInt(pUrl.port) || (pUrl.protocol === "https:" ? 443 : 80),
+            method: "CONNECT",
+            path: `${urlObj.hostname}:${urlObj.port || (urlObj.protocol === "https:" ? 443 : 80)}`,
+            timeout: timeoutMs,
+          });
+          tunnelReq.on("connect", (res, socket) => {
+            if (res.statusCode !== 200) {
+              resolve({ ok: false, error: `代理拒绝连接 (HTTP ${res.statusCode})` });
+              return;
+            }
+            const req = client.request({ ...options, socket, agent: false }, (res2) => {
+              resolve({ ok: res2.statusCode < 500, latency: Date.now() - start, status: res2.statusCode });
+            });
+            req.on("error", (e) => resolve({ ok: false, error: e.message }));
+            req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "连接超时" }); });
+            req.end();
+          });
+          tunnelReq.on("error", (e) => resolve({ ok: false, error: `代理连接失败: ${e.message}` }));
+          tunnelReq.on("timeout", () => { tunnelReq.destroy(); resolve({ ok: false, error: "代理连接超时" }); });
+          tunnelReq.end();
+        } catch (e) {
+          resolve({ ok: false, error: `代理配置错误: ${e.message}` });
+        }
+      } else {
+        // 直连
+        const req = client.request(options, (res) => {
+          resolve({ ok: res.statusCode < 500, latency: Date.now() - start, status: res.statusCode });
+        });
+        req.on("error", (e) => resolve({ ok: false, error: e.message }));
+        req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "连接超时" }); });
+        req.end();
+      }
     });
   },
 

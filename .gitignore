@@ -8,7 +8,8 @@
 # Codely memory file (contains API keys, gateway URLs, personal context)
 CODELY.md
 
-# Memory logs
+# Screenshots & logs (not included in plugin package)
+screenshots/
 mem-log/
 
 # Node

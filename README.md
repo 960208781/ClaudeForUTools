@@ -190,32 +190,6 @@ npm install -g @anthropic-ai/claude-code
 
 ---
 
-## 📸 界面预览
-
-> 💡 截图请参见 `screenshots/` 目录（上架前补充实际截图）
-
-### 仪表盘
-
-![仪表盘](screenshots/dashboard.png)
-
-### 对话页面
-
-![对话页面](screenshots/chat.png)
-
-### 会话历史
-
-![会话历史](screenshots/sessions.png)
-
-### 网关信息
-
-![网关信息](screenshots/gateway.png)
-
-### 模型管理
-
-![模型管理](screenshots/model.png)
-
----
-
 ## 📦 版本说明
 
 ### v1.0.0 (2026-07-30)
