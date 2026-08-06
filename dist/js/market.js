@@ -1,11 +1,14 @@
 /**
  * 市场页面 — MCP 服务器 / Skills / 命令 一键安装
+ * 支持全局/项目级切换
  */
 
 const MarketPage = {
   currentTab: "mcp",
   searchText: "",
   category: "all",
+  scope: "global", // global | project
+  projectDir: null,
 
   // ============================================================
   //  MCP 服务器市场数据
@@ -81,6 +84,15 @@ const MarketPage = {
       </div>
 
       <div class="flex items-center gap-3 mb-4">
+        <div class="tabs" id="marketScope" style="margin-bottom:0; border:none">
+          <div class="tab active" data-scope="global">🌍 全局</div>
+          <div class="tab" data-scope="project">📁 项目级</div>
+        </div>
+        <button class="btn sm" id="marketSelectProject" style="display:none">📁 选择项目目录</button>
+        <span class="text-sm text-muted" id="marketProjectDir" style="display:none"></span>
+      </div>
+
+      <div class="flex items-center gap-3 mb-4">
         <input class="input" id="marketSearch" placeholder="🔍 搜索..." style="flex:1" value="${this.searchText}" />
         <select class="select" id="marketCategory" style="width:150px">
           <option value="all">全部分类</option>
@@ -95,6 +107,7 @@ const MarketPage = {
   },
 
   bindEvents() {
+    // Tab 切换
     document.querySelectorAll("#marketTabs .tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         document.querySelectorAll("#marketTabs .tab").forEach((t) => t.classList.remove("active"));
@@ -108,6 +121,26 @@ const MarketPage = {
       });
     });
 
+    // Scope 切换
+    document.querySelectorAll("#marketScope .tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll("#marketScope .tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        this.scope = tab.dataset.scope;
+        const showProject = this.scope === "project";
+        document.getElementById("marketSelectProject").style.display = showProject ? "" : "none";
+        document.getElementById("marketProjectDir").style.display = showProject ? "" : "none";
+        if (showProject && !this.projectDir) {
+          this.selectProject();
+        }
+        this.renderGrid();
+      });
+    });
+
+    // 项目目录选择
+    document.getElementById("marketSelectProject")?.addEventListener("click", () => this.selectProject());
+
+    // 搜索和分类
     document.getElementById("marketSearch")?.addEventListener("input", (e) => {
       this.searchText = e.target.value.toLowerCase();
       this.renderGrid();
@@ -117,6 +150,19 @@ const MarketPage = {
       this.category = e.target.value;
       this.renderGrid();
     });
+  },
+
+  async selectProject() {
+    const result = await Utils.showOpenDialog({
+      title: "选择项目目录",
+      properties: ["openDirectory"],
+    });
+    if (result && result[0]) {
+      this.projectDir = result[0];
+      const dirEl = document.getElementById("marketProjectDir");
+      if (dirEl) dirEl.textContent = Utils.baseName(result[0]);
+      this.renderGrid();
+    }
   },
 
   getData() {
@@ -137,6 +183,12 @@ const MarketPage = {
     const grid = document.getElementById("marketGrid");
     if (!grid) return;
 
+    // 项目级未选择目录时提示
+    if (this.scope === "project" && !this.projectDir) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-text">请先选择项目目录</div><button class="btn sm primary mt-2" onclick="MarketPage.selectProject()">选择目录</button></div>';
+      return;
+    }
+
     this.updateCategories();
 
     let data = this.getData();
@@ -147,6 +199,8 @@ const MarketPage = {
       grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">未找到匹配项</div></div>';
       return;
     }
+
+    const scopeLabel = this.scope === "global" ? "全局" : "项目";
 
     grid.innerHTML = data.map((item) => {
       const installed = this.isInstalled(item.name);
@@ -161,11 +215,12 @@ const MarketPage = {
             <span class="badge-sm">${Utils.escapeHtml(item.category)}</span>
             ${item.needsEnv ? '<span class="badge-sm warn">需要配置</span>' : ""}
             ${item.needsConfig ? '<span class="badge-sm warn">需要参数</span>' : ""}
+            ${installed ? `<span class="badge-sm" style="color:var(--color-success, #9ece6a)">✓ ${scopeLabel}已安装</span>` : ""}
           </div>
           <div class="market-card-actions">
             ${installed
-              ? `<button class="btn sm danger" data-uninstall="${Utils.escapeHtml(item.name)}">卸载</button>`
-              : `<button class="btn sm primary" data-install="${Utils.escapeHtml(item.name)}">安装</button>`
+              ? `<button class="btn sm danger" data-uninstall="${Utils.escapeHtml(item.name)}">从${scopeLabel}卸载</button>`
+              : `<button class="btn sm primary" data-install="${Utils.escapeHtml(item.name)}">安装到${scopeLabel}</button>`
             }
             ${item.github ? `<a href="${item.github}" target="_blank" class="btn sm ghost">📎</a>` : ""}
           </div>
@@ -182,21 +237,26 @@ const MarketPage = {
   },
 
   // ============================================================
-  //  安装状态检测
+  //  安装状态检测 — 基于当前 scope
   // ============================================================
   isInstalled(name) {
     if (this.currentTab === "mcp") {
-      const configs = Utils.apiSync("readMCPConfig");
-      return !!(configs?.global?.mcpServers?.[name] || configs?.project?.mcpServers?.[name]);
+      const configs = Utils.apiSync("readMCPConfig", this.projectDir);
+      if (this.scope === "global") {
+        return !!configs?.global?.mcpServers?.[name];
+      }
+      return !!configs?.project?.mcpServers?.[name];
     }
     if (this.currentTab === "skill") {
-      const claudeDir = Utils.apiSync("getClaudeDir");
-      const skillPath = Utils.apiSync("pathJoin", claudeDir, "skills", name, "SKILL.md");
-      return Utils.apiSync("fileExists", skillPath);
+      const skills = Utils.apiSync("listSkills", this.scope === "project" ? this.projectDir : null);
+      return skills.some((s) => s.dirName === name);
     }
     // command
     const claudeDir = Utils.apiSync("getClaudeDir");
-    const cmdPath = Utils.apiSync("pathJoin", claudeDir, "commands", `${name}.md`);
+    const basePath = this.scope === "project" && this.projectDir
+      ? Utils.apiSync("pathJoin", this.projectDir, ".claude", "commands")
+      : Utils.apiSync("pathJoin", claudeDir, "commands");
+    const cmdPath = Utils.apiSync("pathJoin", basePath, `${name}.md`);
     return Utils.apiSync("fileExists", cmdPath);
   },
 
@@ -204,6 +264,10 @@ const MarketPage = {
   //  安装
   // ============================================================
   install(name) {
+    if (this.scope === "project" && !this.projectDir) {
+      Utils.toast("请先选择项目目录", "warning");
+      return;
+    }
     const data = this.getData();
     const item = data.find((d) => d.name === name);
     if (!item) return;
@@ -218,7 +282,6 @@ const MarketPage = {
   },
 
   installMcp(item) {
-    // 需要用户输入环境变量
     let env = { ...item.env };
     if (item.needsEnv) {
       const fields = Object.keys(item.env).map((k) => `
@@ -246,7 +309,6 @@ const MarketPage = {
       return;
     }
 
-    // 需要用户输入配置参数（追加到 args 末尾）
     if (item.needsConfig) {
       const { overlay, close } = Utils.modal(
         `配置 ${item.name}`,
@@ -271,8 +333,9 @@ const MarketPage = {
   },
 
   _writeMcpConfig(item, env) {
-    const configs = Utils.apiSync("readMCPConfig");
-    const config = configs.global || { mcpServers: {} };
+    const scopeKey = this.scope; // "global" or "project"
+    const configs = Utils.apiSync("readMCPConfig", this.projectDir);
+    const config = configs[scopeKey] || { mcpServers: {} };
     if (!config.mcpServers) config.mcpServers = {};
 
     // Windows 需要 cmd /c 包装 npx
@@ -285,23 +348,33 @@ const MarketPage = {
     }
 
     config.mcpServers[item.name] = { command, args, ...(Object.keys(env).length ? { env } : {}) };
-    Utils.apiSync("writeMCPConfig", "global", config);
-    Utils.toast(`${item.name} 已安装`, "success");
+    Utils.apiSync("writeMCPConfig", scopeKey, config, this.projectDir);
+    Utils.toast(`${item.name} 已安装到${this.scope === "global" ? "全局" : "项目"}`, "success");
     this.renderGrid();
   },
 
   installSkill(item) {
-    const claudeDir = Utils.apiSync("getClaudeDir");
-    const skillPath = Utils.apiSync("pathJoin", claudeDir, "skills", item.name, "SKILL.md");
-    Utils.apiSync("writeFile", skillPath, item.content);
+    if (this.scope === "project" && this.projectDir) {
+      const skillPath = Utils.apiSync("pathJoin", this.projectDir, ".claude", "skills", item.name, "SKILL.md");
+      Utils.apiSync("writeFile", skillPath, item.content);
+    } else {
+      const claudeDir = Utils.apiSync("getClaudeDir");
+      const skillPath = Utils.apiSync("pathJoin", claudeDir, "skills", item.name, "SKILL.md");
+      Utils.apiSync("writeFile", skillPath, item.content);
+    }
     Utils.toast(`Skill ${item.name} 已安装`, "success");
     this.renderGrid();
   },
 
   installCommand(item) {
-    const claudeDir = Utils.apiSync("getClaudeDir");
-    const cmdPath = Utils.apiSync("pathJoin", claudeDir, "commands", `${item.name}.md`);
-    Utils.apiSync("writeFile", cmdPath, item.content);
+    if (this.scope === "project" && this.projectDir) {
+      const cmdPath = Utils.apiSync("pathJoin", this.projectDir, ".claude", "commands", `${item.name}.md`);
+      Utils.apiSync("writeFile", cmdPath, item.content);
+    } else {
+      const claudeDir = Utils.apiSync("getClaudeDir");
+      const cmdPath = Utils.apiSync("pathJoin", claudeDir, "commands", `${item.name}.md`);
+      Utils.apiSync("writeFile", cmdPath, item.content);
+    }
     Utils.toast(`命令 /${item.name} 已安装`, "success");
     this.renderGrid();
   },
@@ -310,22 +383,28 @@ const MarketPage = {
   //  卸载
   // ============================================================
   async uninstall(name) {
-    if (!await Utils.confirm(`确定卸载 "${name}"？`)) return;
+    if (!await Utils.confirm(`确定从${this.scope === "global" ? "全局" : "项目"}卸载 "${name}"？`)) return;
 
     if (this.currentTab === "mcp") {
-      const configs = Utils.apiSync("readMCPConfig");
-      const config = configs.global || { mcpServers: {} };
+      const scopeKey = this.scope;
+      const configs = Utils.apiSync("readMCPConfig", this.projectDir);
+      const config = configs[scopeKey] || { mcpServers: {} };
       if (config.mcpServers?.[name]) {
         delete config.mcpServers[name];
-        Utils.apiSync("writeMCPConfig", "global", config);
+        Utils.apiSync("writeMCPConfig", scopeKey, config, this.projectDir);
       }
       Utils.toast(`${name} 已卸载`, "success");
     } else if (this.currentTab === "skill") {
-      Utils.apiSync("deleteSkill", name);
+      Utils.apiSync("deleteSkill", name, this.scope === "project" ? this.projectDir : null);
       Utils.toast(`Skill ${name} 已卸载`, "success");
     } else {
-      const claudeDir = Utils.apiSync("getClaudeDir");
-      const cmdPath = Utils.apiSync("pathJoin", claudeDir, "commands", `${name}.md`);
+      let cmdPath;
+      if (this.scope === "project" && this.projectDir) {
+        cmdPath = Utils.apiSync("pathJoin", this.projectDir, ".claude", "commands", `${name}.md`);
+      } else {
+        const claudeDir = Utils.apiSync("getClaudeDir");
+        cmdPath = Utils.apiSync("pathJoin", claudeDir, "commands", `${name}.md`);
+      }
       Utils.apiSync("deleteCommand", cmdPath);
       Utils.toast(`命令 /${name} 已卸载`, "success");
     }

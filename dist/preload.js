@@ -1107,15 +1107,17 @@ function deleteCommand(filePath) {
 //  Skills 管理
 // ============================================================
 
-function listSkills() {
-  const skillsDir = path.join(getClaudeDir(), "skills");
-  if (!fs.existsSync(skillsDir)) return [];
+function listSkills(projectDir) {
+  const baseDir = projectDir
+    ? path.join(projectDir, ".claude", "skills")
+    : path.join(getClaudeDir(), "skills");
+  if (!fs.existsSync(baseDir)) return [];
 
   const skills = [];
   try {
-    const entries = fs.readdirSync(skillsDir);
+    const entries = fs.readdirSync(baseDir);
     for (const entry of entries) {
-      const entryPath = path.join(skillsDir, entry);
+      const entryPath = path.join(baseDir, entry);
       if (!fs.statSync(entryPath).isDirectory()) continue;
 
       // 读取 SKILL.md
@@ -1140,6 +1142,7 @@ function listSkills() {
         description,
         content,
         skillMdPath: fs.existsSync(skillMdPath) ? skillMdPath : null,
+        scope: projectDir ? "project" : "user",
       });
     }
   } catch (e) {
@@ -1149,9 +1152,12 @@ function listSkills() {
   return skills;
 }
 
-function deleteSkill(dirName) {
+function deleteSkill(dirName, projectDir) {
   try {
-    const skillDir = path.join(getClaudeDir(), "skills", dirName);
+    const baseDir = projectDir
+      ? path.join(projectDir, ".claude", "skills")
+      : path.join(getClaudeDir(), "skills");
+    const skillDir = path.join(baseDir, dirName);
     fs.rmSync(skillDir, { recursive: true, force: true });
     return { success: true };
   } catch (e) {

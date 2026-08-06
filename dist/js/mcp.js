@@ -50,6 +50,11 @@ const McpPage = {
         this.projectDir = result[0];
         document.getElementById("mcpProjectDir").textContent = result[0];
         this.loadConfig();
+        // 自动切换到项目级 tab
+        document.querySelectorAll("#mcpTabs .tab").forEach((t) => t.classList.remove("active"));
+        const projectTab = document.querySelector('#mcpTabs .tab[data-scope="project"]');
+        if (projectTab) projectTab.classList.add("active");
+        this.loadEditor("project");
       }
     });
 
