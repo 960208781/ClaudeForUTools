@@ -1149,6 +1149,16 @@ function listSkills() {
   return skills;
 }
 
+function deleteSkill(dirName) {
+  try {
+    const skillDir = path.join(getClaudeDir(), "skills", dirName);
+    fs.rmSync(skillDir, { recursive: true, force: true });
+    return { success: true };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 // ============================================================
 //  文件操作
 // ============================================================
@@ -1290,6 +1300,7 @@ window.claudeAPI = {
 
   // Skills
   listSkills,
+  deleteSkill,
 
   // 文件操作
   readDir,

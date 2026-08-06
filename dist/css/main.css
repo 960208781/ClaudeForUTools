@@ -749,3 +749,69 @@ html, body {
 .ask-user-option.selected .ask-user-radio {
   color: var(--accent);
 }
+
+/* === 市场页面 === */
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.market-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s;
+}
+.market-card:hover {
+  border-color: var(--border-light);
+}
+.market-card.installed {
+  border-color: var(--color-success, #9ece6a);
+}
+.market-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.market-card-icon {
+  font-size: 20px;
+}
+.market-card-name {
+  font-weight: 600;
+  font-size: 13px;
+  word-break: break-all;
+}
+.market-card-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  flex: 1;
+}
+.market-card-meta {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.badge-sm {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+.badge-sm.warn {
+  background: rgba(224, 175, 104, 0.15);
+  color: #e0af68;
+}
+.market-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.market-card-actions a {
+  text-decoration: none;
+}
