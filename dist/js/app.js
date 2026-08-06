@@ -1,6 +1,6 @@
 /**
  * 主应用逻辑
- * 统一 scope 管理 — 全局/项目级切换贯穿所有页面
+ * 统一 scope 管理 + 专业 IDE 壳层（活动栏/命令面板/状态栏）
  */
 
 const App = {
@@ -9,13 +9,13 @@ const App = {
   currentWorkDir: null,
 
   // === 统一 scope 管理 ===
-  scope: "global",       // "global" | "project"
-  projectDir: null,      // 选中的项目目录
-
-  // scope 依赖的页面列表（这些页面会根据 scope 读取不同配置）
+  scope: "global",
+  projectDir: null,
   scopeAwarePages: ["mcp", "hooks", "commands", "skills", "market", "config"],
 
-  // 斜杠命令快捷列表
+  // 命令面板索引
+  paletteItems: [],
+
   slashCommands: [
     { cmd: "/init", icon: "🚀", desc: "初始化项目" },
     { cmd: "/compact", icon: "📦", desc: "压缩上下文" },
@@ -51,7 +51,6 @@ const App = {
     { cmd: "/focus", icon: "🎯", desc: "专注模式" },
   ],
 
-  // 页面标题映射
   pageTitles: {
     dashboard: "仪表盘",
     terminal: "对话",
@@ -69,35 +68,30 @@ const App = {
     setup: "安装与诊断",
   },
 
+  // 页面图标（命令面板用）
+  pageIcons: {
+    dashboard: "🏠", terminal: "💬", model: "🧠", config: "⚙️",
+    mcp: "🔌", hooks: "🪝", commands: "📝", skills: "✨",
+    market: "🏪", sessions: "📂", gateway: "🌐", monitor: "📊",
+    tips: "💡", setup: "🔧",
+  },
+
   init() {
     Utils.applyTheme();
 
-    const sidebarExpanded = Utils.store.get("sidebarExpanded", false);
-    if (sidebarExpanded) document.getElementById("sidebar").classList.add("expanded");
+    const expanded = Utils.store.get("sidebarExpanded", false);
+    if (expanded) document.getElementById("activityBar")?.classList.add("expanded");
 
-    document.querySelectorAll(".nav-item").forEach((item) => {
-      item.addEventListener("click", () => this.navigate(item.dataset.page));
-    });
-
-    document.getElementById("sidebarToggle").addEventListener("click", () => {
-      const sidebar = document.getElementById("sidebar");
-      sidebar.classList.toggle("expanded");
-      const expanded = sidebar.classList.contains("expanded");
-      Utils.store.set("sidebarExpanded", expanded);
-      document.getElementById("toggleIcon").textContent = expanded ? "▶" : "◀";
-    });
-
-    // 绑定 topbar scope 控件
-    this.bindTopbarScope();
+    this.bindActivityBar();
+    this.bindScope();
+    this.bindPalette();
 
     utools.onPluginEnter(({ code, type, payload }) => {
       this.handlePluginEnter(code, type, payload);
     });
 
     utools.onPluginOut(() => {
-      if (typeof Terminal !== "undefined" && Terminal.cleanup) {
-        Terminal.cleanup();
-      }
+      if (typeof Terminal !== "undefined" && Terminal.cleanup) Terminal.cleanup();
     });
 
     this.checkInstallStatus();
@@ -107,32 +101,39 @@ const App = {
       Terminal._restoreProjects();
     }
 
+    // 状态栏时钟
+    this.startClock();
+
     this.navigate(this.currentPage);
   },
 
-  // === Scope 管理方法 ===
+  // === 活动栏导航 ===
+  bindActivityBar() {
+    document.querySelectorAll(".activity-item").forEach((item) => {
+      item.addEventListener("click", () => this.navigate(item.dataset.page));
+    });
 
-  bindTopbarScope() {
-    document.getElementById("scopeToggleGlobal")?.addEventListener("click", () => {
-      this.setScope("global");
-    });
-    document.getElementById("scopeToggleProject")?.addEventListener("click", () => {
-      if (!this.projectDir) {
-        this.selectProject();
-      } else {
-        this.setScope("project");
-      }
-    });
-    document.getElementById("scopeSelectProject")?.addEventListener("click", () => {
-      this.selectProject();
+    document.getElementById("activityCollapse")?.addEventListener("click", () => {
+      const bar = document.getElementById("activityBar");
+      bar.classList.toggle("expanded");
+      const expanded = bar.classList.contains("expanded");
+      Utils.store.set("sidebarExpanded", expanded);
+      document.getElementById("collapseIcon").textContent = expanded ? "›" : "‹";
     });
   },
 
-  async selectProject() {
-    const result = await Utils.showOpenDialog({
-      title: "选择项目目录",
-      properties: ["openDirectory"],
+  // === Scope 管理 ===
+  bindScope() {
+    document.getElementById("scopeToggleGlobal")?.addEventListener("click", () => this.setScope("global"));
+    document.getElementById("scopeToggleProject")?.addEventListener("click", () => {
+      if (!this.projectDir) this.selectProject();
+      else this.setScope("project");
     });
+    document.getElementById("scopeSelectProject")?.addEventListener("click", () => this.selectProject());
+  },
+
+  async selectProject() {
+    const result = await Utils.showOpenDialog({ title: "选择项目目录", properties: ["openDirectory"] });
     if (result && result[0]) {
       this.projectDir = result[0];
       this.setScope("project");
@@ -142,71 +143,59 @@ const App = {
   setScope(scope) {
     this.scope = scope;
     this.updateTopbarScope();
-    // 重新渲染当前页面（如果是 scope 依赖页面）
     this.navigate(this.currentPage);
   },
 
   setProjectDir(dir) {
     this.projectDir = dir;
-    if (dir) {
-      this.setScope("project");
-    } else {
-      this.setScope("global");
-    }
+    if (dir) this.setScope("project");
+    else this.setScope("global");
   },
 
-  // 获取当前 scope 对应的配置读取参数
-  getConfigScope() {
-    return this.scope === "project" ? "project" : "user";
-  },
-
-  // 获取当前 scope 对应的 MCP scope key
-  getMcpScope() {
-    return this.scope === "project" ? "project" : "global";
-  },
+  getConfigScope() { return this.scope === "project" ? "project" : "user"; },
+  getMcpScope() { return this.scope === "project" ? "project" : "global"; },
 
   updateTopbarScope() {
-    const scopeGlobal = document.getElementById("scopeToggleGlobal");
-    const scopeProject = document.getElementById("scopeToggleProject");
-    const projectLabel = document.getElementById("scopeProjectLabel");
-    const selectBtn = document.getElementById("scopeSelectProject");
+    const sGlobal = document.getElementById("scopeToggleGlobal");
+    const sProject = document.getElementById("scopeToggleProject");
+    const label = document.getElementById("scopeProjectLabel");
+    const selBtn = document.getElementById("scopeSelectProject");
+    const tag = document.getElementById("scopeTag");
+    const sbScope = document.getElementById("sbScope");
+    const sbProject = document.getElementById("sbProject");
 
-    if (!scopeGlobal || !scopeProject) return;
+    const isProject = this.scope === "project" && this.projectDir;
+    const scopeText = isProject ? "📁 项目级" : "🌍 全局";
 
-    if (this.scope === "project" && this.projectDir) {
-      scopeGlobal.classList.remove("active");
-      scopeProject.classList.add("active");
-      if (projectLabel) {
-        projectLabel.textContent = Utils.baseName(this.projectDir);
-        projectLabel.title = this.projectDir;
-        projectLabel.style.display = "";
-      }
-      if (selectBtn) selectBtn.style.display = "";
-    } else {
-      scopeGlobal.classList.add("active");
-      scopeProject.classList.remove("active");
-      if (projectLabel) {
-        projectLabel.textContent = "";
-        projectLabel.style.display = "none";
-      }
-      if (selectBtn) selectBtn.style.display = "none";
+    if (sGlobal) sGlobal.classList.toggle("active", !isProject);
+    if (sProject) sProject.classList.toggle("active", isProject);
+
+    if (label) {
+      if (isProject) { label.textContent = Utils.baseName(this.projectDir); label.title = this.projectDir; label.style.display = ""; }
+      else { label.textContent = ""; label.style.display = "none"; }
+    }
+    if (selBtn) selBtn.style.display = isProject ? "" : "none";
+
+    // 标题旁 scope 标签
+    if (tag) {
+      tag.textContent = scopeText;
+      tag.className = "scope-tag " + (isProject ? "project" : "global");
+    }
+
+    // 状态栏 scope
+    if (sbScope) sbScope.textContent = scopeText;
+    if (sbProject) {
+      if (isProject) { sbProject.textContent = "📁 " + Utils.baseName(this.projectDir); sbProject.title = this.projectDir; sbProject.style.display = ""; }
+      else sbProject.style.display = "none";
     }
   },
 
   handlePluginEnter(code, type, payload) {
     switch (code) {
-      case "claude-manager":
-        this.navigate("dashboard");
-        break;
-      case "claude-terminal":
-        this.navigate("terminal");
-        break;
-      case "claude-config":
-        this.navigate("config");
-        break;
-      case "claude-session":
-        this.navigate("sessions");
-        break;
+      case "claude-manager": this.navigate("dashboard"); break;
+      case "claude-terminal": this.navigate("terminal"); break;
+      case "claude-config": this.navigate("config"); break;
+      case "claude-session": this.navigate("sessions"); break;
       case "claude-open-dir":
         if (type === "window") {
           const workDir = payload?.dir || payload?.path || Utils.store.get("defaultWorkDir", "");
@@ -214,14 +203,8 @@ const App = {
             this.currentWorkDir = workDir;
             this.setProjectDir(workDir);
             this.navigate("terminal");
-            setTimeout(() => {
-              if (typeof Terminal !== "undefined" && Terminal.newSession) {
-                Terminal.newSession(workDir);
-              }
-            }, 300);
-          } else {
-            this.navigate("terminal");
-          }
+            setTimeout(() => { if (typeof Terminal !== "undefined" && Terminal.newSession) Terminal.newSession(workDir); }, 300);
+          } else { this.navigate("terminal"); }
         }
         break;
       case "claude-open-file":
@@ -230,20 +213,12 @@ const App = {
           const sep = filePath.includes("/") ? "/" : "\\";
           const lastSep = filePath.lastIndexOf(sep);
           const workDir = lastSep > 0 ? filePath.substring(0, lastSep) : "";
-          if (workDir) {
-            this.currentWorkDir = workDir;
-            this.setProjectDir(workDir);
-          }
+          if (workDir) { this.currentWorkDir = workDir; this.setProjectDir(workDir); }
           this.navigate("terminal");
-          setTimeout(() => {
-            if (typeof Terminal !== "undefined" && Terminal.newSession) {
-              Terminal.newSession(workDir, `分析文件: ${filePath}`);
-            }
-          }, 300);
+          setTimeout(() => { if (typeof Terminal !== "undefined" && Terminal.newSession) Terminal.newSession(workDir, `分析文件: ${filePath}`); }, 300);
         }
         break;
     }
-
     utools.setExpendHeight(600);
   },
 
@@ -253,41 +228,58 @@ const App = {
   },
 
   updateTopbarStatus() {
-    const statusEl = document.getElementById("topbarStatus");
-    const parts = [];
-
-    if (this.installStatus) {
-      if (this.installStatus.installed) {
-        parts.push(`<span class="status-badge success"><span class="dot"></span>Claude ${this.installStatus.version || ""}</span>`);
+    // Claude 状态（状态栏）
+    const sbClaude = document.getElementById("sbClaude");
+    if (sbClaude) {
+      if (this.installStatus) {
+        if (this.installStatus.installed) {
+          sbClaude.className = "status-item success";
+          sbClaude.innerHTML = `<span class="dot"></span>Claude ${this.installStatus.version || ""}`;
+        } else {
+          sbClaude.className = "status-item danger";
+          sbClaude.innerHTML = '<span class="dot"></span>未安装';
+        }
       } else {
-        parts.push(`<span class="status-badge danger"><span class="dot"></span>未安装</span>`);
+        sbClaude.className = "status-item";
+        sbClaude.innerHTML = '<span class="dot"></span>检测中…';
       }
     }
 
-    if (this.currentWorkDir) {
-      const dirName = Utils.baseName(this.currentWorkDir);
-      parts.push(`<span class="status-badge"><span class="dot"></span>${Utils.escapeHtml(dirName)}</span>`);
+    // 会话数
+    const sbSessions = document.getElementById("sbSessions");
+    if (sbSessions) {
+      const count = (typeof Terminal !== "undefined" && Terminal.projects) ? Terminal.projects.length : 0;
+      sbSessions.textContent = "💬 " + count;
     }
 
-    statusEl.innerHTML = parts.join("");
     this.updateTopbarScope();
   },
 
+  // === 状态栏时钟 ===
+  startClock() {
+    const update = () => {
+      const el = document.getElementById("sbTime");
+      if (el) {
+        const d = new Date();
+        el.textContent = d.toLocaleTimeString("zh-CN", { hour12: false });
+      }
+    };
+    update();
+    setInterval(update, 1000);
+  },
+
+  // === 页面导航 ===
   navigate(page) {
     this.currentPage = page;
 
-    document.querySelectorAll(".nav-item").forEach((item) => {
+    document.querySelectorAll(".activity-item").forEach((item) => {
       item.classList.toggle("active", item.dataset.page === page);
     });
 
-    // 页面标题带 scope 标识
-    let title = this.pageTitles[page] || page;
-    if (this.scopeAwarePages.includes(page)) {
-      title += this.scope === "project" && this.projectDir
-        ? ` <span class="scope-tag project">📁 ${Utils.baseName(this.projectDir)}</span>`
-        : ` <span class="scope-tag global">🌍 全局</span>`;
-    }
-    document.getElementById("pageTitle").innerHTML = title;
+    // 页面标题 + scope 标签
+    const titleEl = document.getElementById("pageTitle");
+    if (titleEl) titleEl.textContent = this.pageTitles[page] || page;
+    this.updateTopbarScope();
 
     const content = document.getElementById("content");
     content.innerHTML = "";
@@ -310,14 +302,117 @@ const App = {
       setup: () => SetupPage.render(content),
     };
 
-    if (pages[page]) {
-      pages[page]();
-    }
+    if (pages[page]) pages[page]();
   },
 
   setWorkDir(dir) {
     this.currentWorkDir = dir;
     this.updateTopbarStatus();
+  },
+
+  // === 命令面板 ===
+  buildPaletteIndex() {
+    const items = [];
+    // 页面
+    Object.entries(this.pageTitles).forEach(([key, title]) => {
+      items.push({ type: "page", icon: this.pageIcons[key] || "📄", label: title, desc: "跳转页面", action: () => this.navigate(key) });
+    });
+    // scope 操作
+    items.push({ type: "action", icon: "🌍", label: "切换到全局模式", desc: "Scope", action: () => this.setScope("global") });
+    items.push({ type: "action", icon: "📁", label: "选择项目目录", desc: "Scope", action: () => this.selectProject() });
+    // 斜杠命令（发送到终端）
+    this.slashCommands.forEach((c) => {
+      items.push({ type: "slash", icon: c.icon, label: c.cmd, desc: c.desc, action: () => this.sendSlash(c.cmd) });
+    });
+    return items;
+  },
+
+  sendSlash(cmd) {
+    this.navigate("terminal");
+    setTimeout(() => {
+      if (typeof Terminal !== "undefined" && Terminal.activeTabId) Terminal.sendCommand(cmd);
+    }, 300);
+  },
+
+  bindPalette() {
+    const overlay = document.getElementById("paletteOverlay");
+    const input = document.getElementById("paletteInput");
+    const results = document.getElementById("paletteResults");
+
+    // 触发
+    document.getElementById("paletteTrigger")?.addEventListener("click", () => this.openPalette());
+
+    // 快捷键 Ctrl+P / Cmd+P / Ctrl+K
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "k")) {
+        e.preventDefault();
+        this.openPalette();
+      }
+      if (e.key === "Escape" && overlay.style.display !== "none") {
+        this.closePalette();
+      }
+    });
+
+    // 点击遮罩关闭
+    overlay?.addEventListener("click", (e) => { if (e.target === overlay) this.closePalette(); });
+
+    // 搜索
+    let selectedIdx = 0;
+    input?.addEventListener("input", () => {
+      const q = input.value.toLowerCase().trim();
+      const items = this.buildPaletteIndex();
+      const filtered = q ? items.filter((it) => it.label.toLowerCase().includes(q) || it.desc.toLowerCase().includes(q)) : items;
+      selectedIdx = 0;
+      this.renderPaletteResults(results, filtered, selectedIdx);
+
+      // 键盘选择
+      input.onkeydown = (ev) => {
+        if (ev.key === "ArrowDown") { ev.preventDefault(); selectedIdx = Math.min(selectedIdx + 1, filtered.length - 1); this.renderPaletteResults(results, filtered, selectedIdx); }
+        else if (ev.key === "ArrowUp") { ev.preventDefault(); selectedIdx = Math.max(selectedIdx - 1, 0); this.renderPaletteResults(results, filtered, selectedIdx); }
+        else if (ev.key === "Enter") { ev.preventDefault(); if (filtered[selectedIdx]) { filtered[selectedIdx].action(); this.closePalette(); } }
+      };
+    });
+  },
+
+  openPalette() {
+    const overlay = document.getElementById("paletteOverlay");
+    const input = document.getElementById("paletteInput");
+    const results = document.getElementById("paletteResults");
+    if (!overlay) return;
+    overlay.style.display = "flex";
+    input.value = "";
+    const items = this.buildPaletteIndex();
+    this.renderPaletteResults(results, items, 0);
+    setTimeout(() => input.focus(), 50);
+  },
+
+  closePalette() {
+    const overlay = document.getElementById("paletteOverlay");
+    if (overlay) overlay.style.display = "none";
+  },
+
+  renderPaletteResults(container, items, selectedIdx) {
+    if (!container) return;
+    if (items.length === 0) {
+      container.innerHTML = '<div class="palette-empty">未找到匹配项</div>';
+      return;
+    }
+    container.innerHTML = items.map((it, i) => `
+      <div class="palette-result ${i === selectedIdx ? "selected" : ""}" data-idx="${i}">
+        <span class="pr-icon">${it.icon}</span>
+        <span class="pr-label">${Utils.escapeHtml(it.label)}</span>
+        <span class="pr-desc">${Utils.escapeHtml(it.desc)}</span>
+      </div>
+    `).join("");
+
+    container.querySelectorAll(".palette-result").forEach((el, i) => {
+      el.addEventListener("click", () => { items[i].action(); this.closePalette(); });
+      el.addEventListener("mouseenter", () => { selectedIdx = i; });
+    });
+
+    // 滚动到选中项
+    const sel = container.querySelector(".palette-result.selected");
+    if (sel) sel.scrollIntoView({ block: "nearest" });
   },
 };
 

@@ -3,90 +3,123 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Claude Manager</title>
+  <title>ClaudeManager — Claude Code 工作台</title>
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/terminal.css">
 </head>
 <body>
-  <div class="app">
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-logo">🤖</div>
-      <div class="nav-item active" data-page="dashboard" title="仪表盘">
-        <i class="nav-icon">🏠</i>
-        <span class="nav-label">仪表盘</span>
+  <div class="workbench">
+    <!-- ============ 活动栏 ============ -->
+    <nav class="activity-bar" id="activityBar">
+      <div class="activity-logo" title="ClaudeManager">
+        <span class="activity-logo-icon">🤖</span>
       </div>
-      <div class="nav-item" data-page="terminal" title="对话">
-        <i class="nav-icon">💬</i>
-        <span class="nav-label">对话</span>
-      </div>
-      <div class="nav-item" data-page="model" title="模型">
-        <i class="nav-icon">🧠</i>
-        <span class="nav-label">模型</span>
-      </div>
-      <div class="nav-item" data-page="config" title="配置">
-        <i class="nav-icon">⚙️</i>
-        <span class="nav-label">配置</span>
-      </div>
-      <div class="nav-item" data-page="mcp" title="MCP">
-        <i class="nav-icon">🔌</i>
-        <span class="nav-label">MCP 服务器</span>
-      </div>
-      <div class="nav-item" data-page="hooks" title="Hooks">
-        <i class="nav-icon">🪝</i>
-        <span class="nav-label">Hooks</span>
-      </div>
-      <div class="nav-item" data-page="commands" title="命令">
-        <i class="nav-icon">📝</i>
-        <span class="nav-label">自定义命令</span>
-      </div>
-      <div class="nav-item" data-page="skills" title="Skills">
-        <i class="nav-icon">✨</i>
-        <span class="nav-label">Skills</span>
-      </div>
-      <div class="nav-item" data-page="market" title="市场">
-        <i class="nav-icon">🏪</i>
-        <span class="nav-label">市场</span>
-      </div>
-      <div class="nav-item" data-page="sessions" title="会话">
-        <i class="nav-icon">📂</i>
-        <span class="nav-label">会话历史</span>
-      </div>
-      <div class="nav-item" data-page="gateway" title="网关">
-        <i class="nav-icon">🌐</i>
-        <span class="nav-label">网关信息</span>
-      </div>
-      <div class="nav-item" data-page="monitor" title="监控">
-        <i class="nav-icon">📊</i>
-        <span class="nav-label">监控</span>
-      </div>
-      <div class="nav-item" data-page="tips" title="最佳实践">
-        <i class="nav-icon">💡</i>
-        <span class="nav-label">最佳实践</span>
-      </div>
-      <div class="nav-item" data-page="setup" title="设置">
-        <i class="nav-icon">🔧</i>
-        <span class="nav-label">安装与诊断</span>
-      </div>
-      <div class="sidebar-spacer"></div>
-      <div class="sidebar-toggle" id="sidebarToggle" title="展开/收起侧边栏">
-        <span id="toggleIcon">◀</span>
-      </div>
-    </aside>
+      <ul class="activity-items" id="activityItems">
+        <li class="activity-item active" data-page="dashboard" title="仪表盘">
+          <span class="activity-icon">🏠</span><span class="activity-label">仪表盘</span>
+        </li>
+        <li class="activity-item" data-page="terminal" title="对话">
+          <span class="activity-icon">💬</span><span class="activity-label">对话</span>
+        </li>
+        <li class="activity-item" data-page="model" title="模型">
+          <span class="activity-icon">🧠</span><span class="activity-label">模型</span>
+        </li>
+        <li class="activity-item" data-page="config" title="配置">
+          <span class="activity-icon">⚙️</span><span class="activity-label">配置</span>
+        </li>
+        <li class="activity-separator"></li>
+        <li class="activity-item" data-page="mcp" title="MCP 服务器">
+          <span class="activity-icon">🔌</span><span class="activity-label">MCP</span>
+        </li>
+        <li class="activity-item" data-page="hooks" title="Hooks">
+          <span class="activity-icon">🪝</span><span class="activity-label">Hooks</span>
+        </li>
+        <li class="activity-item" data-page="commands" title="命令">
+          <span class="activity-icon">📝</span><span class="activity-label">命令</span>
+        </li>
+        <li class="activity-item" data-page="skills" title="Skills">
+          <span class="activity-icon">✨</span><span class="activity-label">Skills</span>
+        </li>
+        <li class="activity-item" data-page="market" title="市场">
+          <span class="activity-icon">🏪</span><span class="activity-label">市场</span>
+        </li>
+        <li class="activity-separator"></li>
+        <li class="activity-item" data-page="sessions" title="会话历史">
+          <span class="activity-icon">📂</span><span class="activity-label">会话</span>
+        </li>
+        <li class="activity-item" data-page="gateway" title="网关">
+          <span class="activity-icon">🌐</span><span class="activity-label">网关</span>
+        </li>
+        <li class="activity-item" data-page="monitor" title="监控">
+          <span class="activity-icon">📊</span><span class="activity-label">监控</span>
+        </li>
+        <li class="activity-item" data-page="tips" title="最佳实践">
+          <span class="activity-icon">💡</span><span class="activity-label">实践</span>
+        </li>
+        <li class="activity-item" data-page="setup" title="安装诊断">
+          <span class="activity-icon">🔧</span><span class="activity-label">诊断</span>
+        </li>
+      </ul>
+      <button class="activity-collapse" id="activityCollapse" title="折叠/展开侧栏">
+        <span id="collapseIcon">‹</span>
+      </button>
+    </nav>
 
-    <div class="main">
-      <header class="topbar">
-        <div class="topbar-title" id="pageTitle">仪表盘</div>
-        <div class="topbar-spacer"></div>
-        <div class="topbar-scope" id="topbarScope">
-          <button class="scope-btn active" id="scopeToggleGlobal" title="全局模式 (~/.claude/)">🌍 全局</button>
-          <button class="scope-btn" id="scopeToggleProject" title="项目级模式">📁 项目级</button>
-          <span class="scope-project-label" id="scopeProjectLabel" style="display:none"></span>
-          <button class="btn sm ghost" id="scopeSelectProject" style="display:none" title="切换项目目录">切换</button>
+    <!-- ============ 主区域 ============ -->
+    <div class="workbench-main">
+      <!-- 顶部命令栏 -->
+      <header class="command-bar">
+        <div class="command-bar-left">
+          <span class="breadcrumb" id="pageTitle">仪表盘</span>
+          <span class="scope-tag global" id="scopeTag">🌍 全局</span>
         </div>
-        <div class="topbar-status" id="topbarStatus"></div>
+        <div class="command-bar-center">
+          <button class="palette-trigger" id="paletteTrigger" title="命令面板 (Ctrl+P)">
+            <span class="palette-icon">🔍</span>
+            <span class="palette-text">搜索页面或操作...</span>
+            <kbd class="kbd">⌘P</kbd>
+          </button>
+        </div>
+        <div class="command-bar-right">
+          <div class="scope-switch" id="topbarScope">
+            <button class="scope-btn active" id="scopeToggleGlobal" title="全局模式 (~/.claude/)">🌍</button>
+            <button class="scope-btn" id="scopeToggleProject" title="项目级模式">📁</button>
+            <span class="scope-project-label" id="scopeProjectLabel" style="display:none"></span>
+            <button class="btn-icon ghost" id="scopeSelectProject" style="display:none" title="切换项目目录">⇄</button>
+          </div>
+        </div>
       </header>
 
+      <!-- 内容区 -->
       <div class="content" id="content"></div>
+
+      <!-- 底部状态栏 -->
+      <footer class="status-bar" id="statusBar">
+        <div class="status-bar-left">
+          <span class="status-item" id="sbClaude"><span class="dot"></span>检测中…</span>
+          <span class="status-sep">|</span>
+          <span class="status-item scope" id="sbScope">🌍 全局</span>
+          <span class="status-sep">|</span>
+          <span class="status-item project" id="sbProject" style="display:none">📁 —</span>
+        </div>
+        <div class="status-bar-right">
+          <span class="status-item" id="sbSessions" title="活动会话数">💬 0</span>
+          <span class="status-sep">|</span>
+          <span class="status-item" id="sbTime"></span>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- 命令面板 -->
+  <div class="palette-overlay" id="paletteOverlay" style="display:none">
+    <div class="palette" id="palette">
+      <div class="palette-input-wrap">
+        <span class="palette-icon">🔍</span>
+        <input class="palette-input" id="paletteInput" placeholder="输入页面名或操作（如 MCP、安装、模型）…" autocomplete="off" />
+        <kbd class="kbd">esc</kbd>
+      </div>
+      <div class="palette-results" id="paletteResults"></div>
     </div>
   </div>
 
