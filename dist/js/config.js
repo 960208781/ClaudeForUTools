@@ -8,6 +8,15 @@ const ConfigPage = {
 
   render(container) {
     var self = this;
+
+    // 根据 App scope 决定默认级别
+    if (App.scope === "project" && App.projectDir) {
+      this.projectDir = App.projectDir;
+      this.currentLevel = "project";
+    } else if (!App.projectDir) {
+      this.currentLevel = "user";
+    }
+
     var levels = [
       ["user", "用户级 (~/.claude/settings.json)"],
       ["project", "项目级 (.claude/settings.json)"],
@@ -25,14 +34,14 @@ const ConfigPage = {
       </div>
 
       <div id="configContent">
-        <div class="flex items-center gap-3 mb-3" id="projectDirSelector" style="display:none">
+        <div class="flex items-center gap-3 mb-3" id="projectDirSelector" style="display:${(this.currentLevel === "project" || this.currentLevel === "local" || this.currentLevel === "claudemd") ? "flex" : "none"}">
           <button class="btn sm" id="selectProjectDir">📁 选择项目目录</button>
-          <span class="text-sm text-muted" id="projectDirDisplay">未选择</span>
+          <span class="text-sm text-muted" id="projectDirDisplay">${this.projectDir || "未选择"}</span>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title" id="configTitle">用户级配置</div>
+            <div class="card-title" id="configTitle">配置</div>
             <div class="flex gap-2">
               <button class="btn sm" id="reloadConfig">🔄 重新加载</button>
               <button class="btn sm primary" id="saveConfig">💾 保存</button>
@@ -93,11 +102,15 @@ const ConfigPage = {
         tab.classList.add("active");
         this.currentLevel = tab.dataset.level;
 
-        const projectSelector = document.getElementById("projectDirSelector");
-        const claudemdCard = document.getElementById("configContent");
+        // 当 App 处于项目 scope 且有项目目录时，自动填充 projectDir
+        if (App.scope === "project" && App.projectDir) {
+          this.projectDir = App.projectDir;
+        }
 
+        const projectSelector = document.getElementById("projectDirSelector");
         if (this.currentLevel === "project" || this.currentLevel === "local" || this.currentLevel === "claudemd") {
           projectSelector.style.display = "flex";
+          if (this.projectDir) document.getElementById("projectDirDisplay").textContent = this.projectDir;
         } else {
           projectSelector.style.display = "none";
         }
@@ -107,12 +120,10 @@ const ConfigPage = {
     });
 
     document.getElementById("selectProjectDir")?.addEventListener("click", async () => {
-      const result = await Utils.showOpenDialog({
-        title: "选择项目目录",
-        properties: ["openDirectory"],
-      });
+      const result = await Utils.showOpenDialog({ title: "选择项目目录", properties: ["openDirectory"] });
       if (result && result[0]) {
         this.projectDir = result[0];
+        App.setProjectDir(result[0]); // 同步 App 级 scope
         document.getElementById("projectDirDisplay").textContent = result[0];
         this.loadConfig();
       }
@@ -131,6 +142,11 @@ const ConfigPage = {
     const editor = document.getElementById("configEditor");
     const title = document.getElementById("configTitle");
     const claudemdCard = document.querySelector("#permissionsCard");
+
+    // 同步 App 级项目目录
+    if (App.scope === "project" && App.projectDir) {
+      this.projectDir = App.projectDir;
+    }
 
     if (this.currentLevel === "claudemd") {
       title.textContent = this.projectDir ? `CLAUDE.md (项目: ${this.projectDir})` : "CLAUDE.md (用户级)";

@@ -1,20 +1,19 @@
 /**
  * MCP 服务器管理页面
+ * 读取 App.scope / App.projectDir 决定操作范围
  */
 
 const McpPage = {
-  projectDir: null,
-
   render(container) {
-    container.innerHTML = `
-      <div class="flex items-center gap-3 mb-4">
-        <button class="btn sm" id="selectProjectBtn">📁 选择项目目录</button>
-        <span class="text-sm text-muted" id="mcpProjectDir">查看全局配置</span>
-      </div>
+    const isProject = App.scope === "project" && App.projectDir;
+    const scopeHint = isProject
+      ? `📁 项目级: ${Utils.baseName(App.projectDir)}`
+      : "🌍 全局 (~/.claude/.mcp.json)";
 
+    container.innerHTML = `
       <div class="card mb-4">
         <div class="card-header">
-          <div class="card-title">🔌 MCP 服务器配置</div>
+          <div class="card-title">🔌 MCP 服务器配置 <span class="text-xs text-muted ml-2">${scopeHint}</span></div>
           <button class="btn sm primary" id="addMcpBtn">+ 添加服务器</button>
         </div>
         <div id="mcpServersList"></div>
@@ -28,10 +27,7 @@ const McpPage = {
             <button class="btn sm primary" id="saveMcp">💾 保存</button>
           </div>
         </div>
-        <div class="tabs" id="mcpTabs">
-          <div class="tab active" data-scope="global">全局 (~/.claude/.mcp.json)</div>
-          <div class="tab" data-scope="project">项目级 (.mcp.json)</div>
-        </div>
+        <div class="text-xs text-muted mb-2">${isProject ? "项目 .mcp.json" : "全局 ~/.claude/.mcp.json"}</div>
         <textarea class="textarea" id="mcpEditor" style="min-height:300px; font-size:12px;"></textarea>
       </div>
     `;
@@ -41,107 +37,77 @@ const McpPage = {
   },
 
   bindEvents() {
-    document.getElementById("selectProjectBtn")?.addEventListener("click", async () => {
-      const result = await Utils.showOpenDialog({
-        title: "选择项目目录",
-        properties: ["openDirectory"],
-      });
-      if (result && result[0]) {
-        this.projectDir = result[0];
-        document.getElementById("mcpProjectDir").textContent = result[0];
-        this.loadConfig();
-        // 自动切换到项目级 tab
-        document.querySelectorAll("#mcpTabs .tab").forEach((t) => t.classList.remove("active"));
-        const projectTab = document.querySelector('#mcpTabs .tab[data-scope="project"]');
-        if (projectTab) projectTab.classList.add("active");
-        this.loadEditor("project");
-      }
-    });
-
     document.getElementById("addMcpBtn")?.addEventListener("click", () => this.addServer());
     document.getElementById("reloadMcp")?.addEventListener("click", () => this.loadConfig());
     document.getElementById("saveMcp")?.addEventListener("click", () => this.saveConfig());
-
-    document.querySelectorAll("#mcpTabs .tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        document.querySelectorAll("#mcpTabs .tab").forEach((t) => t.classList.remove("active"));
-        tab.classList.add("active");
-        this.loadEditor(tab.dataset.scope);
-      });
-    });
   },
 
   loadConfig() {
-    const configs = Utils.apiSync("readMCPConfig", this.projectDir);
+    const configs = Utils.apiSync("readMCPConfig", App.projectDir);
     this.configs = configs;
     this.renderServerList(configs);
-    this.loadEditor("global");
+    this.loadEditor();
   },
 
   renderServerList(configs) {
     const el = document.getElementById("mcpServersList");
-    const allServers = [];
+    const mcpScope = App.getMcpScope();
+    const config = configs?.[mcpScope] || { mcpServers: {} };
+    const servers = config.mcpServers || {};
+    const scopeLabel = App.scope === "project" ? "项目" : "全局";
 
-    if (configs.global?.mcpServers) {
-      Object.entries(configs.global.mcpServers).forEach(([name, config]) => {
-        allServers.push({ name, config, scope: "全局" });
-      });
-    }
-    if (configs.project?.mcpServers) {
-      Object.entries(configs.project.mcpServers).forEach(([name, config]) => {
-        allServers.push({ name, config, scope: "项目" });
-      });
-    }
-
-    if (allServers.length === 0) {
+    const entries = Object.entries(servers);
+    if (entries.length === 0) {
       el.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">🔌</div>
-          <div class="empty-text">暂无 MCP 服务器配置</div>
+          <div class="empty-text">${scopeLabel}暂无 MCP 服务器配置</div>
         </div>
       `;
       return;
     }
 
-    el.innerHTML = allServers.map((s) => `
+    el.innerHTML = entries.map(([name, cfg]) => `
       <div class="list-item">
         <div class="list-item-icon">🔌</div>
         <div class="list-item-content">
-          <div class="list-item-title">${Utils.escapeHtml(s.name)}</div>
+          <div class="list-item-title">${Utils.escapeHtml(name)}</div>
           <div class="list-item-subtitle">
-            ${s.scope} · ${Utils.escapeHtml(s.config.command || "unknown")}
-            ${s.config.args ? " " + Utils.escapeHtml(s.config.args.join(" ")) : ""}
+            ${Utils.escapeHtml(cfg.command || "unknown")}
+            ${cfg.args ? " " + Utils.escapeHtml(cfg.args.join(" ")) : ""}
           </div>
         </div>
-        <span class="status-badge info">${s.scope}</span>
+        <span class="status-badge info">${scopeLabel}</span>
         <div class="list-item-actions">
-          <button class="btn ghost sm" data-edit="${Utils.escapeHtml(s.name)}" data-scope="${s.scope}">编辑</button>
-          <button class="btn ghost sm" data-del="${Utils.escapeHtml(s.name)}" data-scope="${s.scope}">✕</button>
+          <button class="btn ghost sm" data-edit="${Utils.escapeHtml(name)}">编辑</button>
+          <button class="btn ghost sm" data-del="${Utils.escapeHtml(name)}">✕</button>
         </div>
       </div>
     `).join("");
 
     el.querySelectorAll("[data-edit]").forEach((btn) => {
-      btn.addEventListener("click", () => this.editServer(btn.dataset.edit, btn.dataset.scope));
+      btn.addEventListener("click", () => this.editServer(btn.dataset.edit));
     });
     el.querySelectorAll("[data-del]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (await Utils.confirm(`确定删除服务器 "${btn.dataset.del}"？`)) {
-          this.deleteServer(btn.dataset.del, btn.dataset.scope);
+          this.deleteServer(btn.dataset.del);
         }
       });
     });
   },
 
-  loadEditor(scope) {
+  loadEditor() {
     const editor = document.getElementById("mcpEditor");
-    const config = this.configs?.[scope] || { mcpServers: {} };
+    const mcpScope = App.getMcpScope();
+    const config = this.configs?.[mcpScope] || { mcpServers: {} };
     editor.value = JSON.stringify(config, null, 2);
   },
 
   addServer() {
+    const scopeLabel = App.scope === "project" ? "项目" : "全局";
     const { overlay, close } = Utils.modal(
-      "添加 MCP 服务器",
+      `添加 MCP 服务器 (${scopeLabel})`,
       `
         <div class="flex flex-col gap-3">
           <div>
@@ -160,13 +126,6 @@ const McpPage = {
             <label class="text-sm text-muted">环境变量 (JSON 格式, 可选)</label>
             <input class="input mt-1" id="mcpEnv" placeholder='如: {"GITHUB_TOKEN": "xxx"}' />
           </div>
-          <div>
-            <label class="text-sm text-muted">作用域</label>
-            <select class="select mt-1" id="mcpScope">
-              <option value="global">全局</option>
-              <option value="project">项目</option>
-            </select>
-          </div>
         </div>
       `,
       `<button class="btn" data-cancel>取消</button><button class="btn primary" data-ok>添加</button>`
@@ -177,24 +136,18 @@ const McpPage = {
       const command = document.getElementById("mcpCommand").value.trim();
       const args = document.getElementById("mcpArgs").value.trim().split(/\s+/).filter(Boolean);
       const envStr = document.getElementById("mcpEnv").value.trim();
-      const scope = document.getElementById("mcpScope").value;
 
-      if (!name || !command) {
-        Utils.toast("名称和命令不能为空", "error");
-        return;
-      }
+      if (!name || !command) { Utils.toast("名称和命令不能为空", "error"); return; }
 
       let env = {};
-      try { if (envStr) env = JSON.parse(envStr); } catch (e) {
-        Utils.toast("环境变量 JSON 格式错误", "error");
-        return;
-      }
+      try { if (envStr) env = JSON.parse(envStr); } catch (e) { Utils.toast("环境变量 JSON 格式错误", "error"); return; }
 
-      const config = this.configs[scope] || { mcpServers: {} };
+      const mcpScope = App.getMcpScope();
+      const config = this.configs?.[mcpScope] || { mcpServers: {} };
       if (!config.mcpServers) config.mcpServers = {};
       config.mcpServers[name] = { command, args, ...(Object.keys(env).length ? { env } : {}) };
 
-      Utils.apiSync("writeMCPConfig", scope, config, this.projectDir);
+      Utils.apiSync("writeMCPConfig", mcpScope, config, App.projectDir);
       Utils.toast(`服务器 ${name} 已添加`, "success");
       close();
       this.loadConfig();
@@ -203,9 +156,9 @@ const McpPage = {
     overlay.querySelector("[data-cancel]").onclick = close;
   },
 
-  editServer(name, scope) {
-    const scopeKey = scope === "全局" ? "global" : "project";
-    const server = this.configs[scopeKey]?.mcpServers?.[name];
+  editServer(name) {
+    const mcpScope = App.getMcpScope();
+    const server = this.configs?.[mcpScope]?.mcpServers?.[name];
     if (!server) return;
 
     const { overlay, close } = Utils.modal(
@@ -233,11 +186,9 @@ const McpPage = {
       server.command = document.getElementById("mcpCommand").value.trim();
       server.args = document.getElementById("mcpArgs").value.trim().split(/\s+/).filter(Boolean);
       const envStr = document.getElementById("mcpEnv").value.trim();
-      try {
-        server.env = envStr ? JSON.parse(envStr) : undefined;
-      } catch (e) {}
+      try { server.env = envStr ? JSON.parse(envStr) : undefined; } catch (e) {}
 
-      Utils.apiSync("writeMCPConfig", scopeKey, this.configs[scopeKey], this.projectDir);
+      Utils.apiSync("writeMCPConfig", mcpScope, this.configs[mcpScope], App.projectDir);
       Utils.toast("已更新", "success");
       close();
       this.loadConfig();
@@ -246,12 +197,12 @@ const McpPage = {
     overlay.querySelector("[data-cancel]").onclick = close;
   },
 
-  deleteServer(name, scope) {
-    const scopeKey = scope === "全局" ? "global" : "project";
-    const config = this.configs[scopeKey];
+  deleteServer(name) {
+    const mcpScope = App.getMcpScope();
+    const config = this.configs?.[mcpScope];
     if (config?.mcpServers?.[name]) {
       delete config.mcpServers[name];
-      Utils.apiSync("writeMCPConfig", scopeKey, config, this.projectDir);
+      Utils.apiSync("writeMCPConfig", mcpScope, config, App.projectDir);
       Utils.toast(`服务器 ${name} 已删除`, "success");
       this.loadConfig();
     }
@@ -259,18 +210,12 @@ const McpPage = {
 
   saveConfig() {
     const editor = document.getElementById("mcpEditor");
-    const activeTab = document.querySelector("#mcpTabs .tab.active");
-    const scope = activeTab?.dataset.scope || "global";
+    const mcpScope = App.getMcpScope();
 
     let config;
-    try {
-      config = JSON.parse(editor.value);
-    } catch (e) {
-      Utils.toast("JSON 格式错误", "error");
-      return;
-    }
+    try { config = JSON.parse(editor.value); } catch (e) { Utils.toast("JSON 格式错误", "error"); return; }
 
-    Utils.apiSync("writeMCPConfig", scope, config, this.projectDir);
+    Utils.apiSync("writeMCPConfig", mcpScope, config, App.projectDir);
     Utils.toast("配置已保存", "success");
     this.loadConfig();
   },

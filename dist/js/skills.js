@@ -1,5 +1,6 @@
 /**
- * Skills 管理页面 — 含模板库和创建功能
+ * Skills 管理页面
+ * 读取 App.scope / App.projectDir 决定操作范围
  */
 
 const SkillsPage = {
@@ -32,11 +33,16 @@ const SkillsPage = {
   ],
 
   render(container) {
+    const isProject = App.scope === "project" && App.projectDir;
+    const scopeHint = isProject
+      ? `📁 项目级: ${Utils.baseName(App.projectDir)}`
+      : "🌍 全局 (~/.claude/skills/)";
+
     container.innerHTML = `
       <div class="grid grid-2 mb-3">
         <div class="card">
           <div class="card-header">
-            <div class="card-title">✨ 已安装的 Skills</div>
+            <div class="card-title">✨ 已安装的 Skills <span class="text-xs text-muted ml-2">${scopeHint}</span></div>
             <button class="btn sm primary" id="newSkillBtn">+ 新建</button>
           </div>
           <div id="skillsList"></div>
@@ -69,9 +75,12 @@ const SkillsPage = {
           <input class="input" id="skillName" placeholder="skill-name" style="flex:1" />
         </div>
         <textarea class="textarea" id="skillContent" style="min-height:200px" placeholder="SKILL.md 内容..."></textarea>
-        <div class="text-xs text-muted mt-2">Skills 目录: ~/.claude/skills/skill-name/SKILL.md</div>
+        <div class="text-xs text-muted mt-2">
+          保存位置: ${isProject ? `.claude/skills/skill-name/SKILL.md (项目级)` : `~/.claude/skills/skill-name/SKILL.md (全局)`}
+        </div>
       </div>
     `;
+
     this.bindEvents();
     this.loadSkills();
   },
@@ -96,7 +105,14 @@ const SkillsPage = {
 
   loadSkills() {
     const el = document.getElementById("skillsList");
-    const skills = Utils.apiSync("listSkills");
+
+    if (App.scope === "project" && !App.projectDir) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-text">请先在顶部选择项目目录</div></div>`;
+      return;
+    }
+
+    const projectDir = App.scope === "project" ? App.projectDir : null;
+    const skills = Utils.apiSync("listSkills", projectDir);
     this.skills = skills;
     if (!skills || skills.length === 0) {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">✨</div><div class="empty-text">暂无 Skills</div><div class="text-xs text-muted mt-2">使用右侧模板创建</div></div>';
@@ -130,8 +146,17 @@ const SkillsPage = {
     const name = document.getElementById("skillName").value.trim();
     const content = document.getElementById("skillContent").value;
     if (!name) { Utils.toast("名称不能为空", "error"); return; }
-    const claudeDir = Utils.apiSync("getClaudeDir");
-    const skillDir = Utils.apiSync("pathJoin", claudeDir, "skills", name);
+
+    if (App.scope === "project" && !App.projectDir) {
+      Utils.toast("请先在顶部选择项目目录", "warning");
+      return;
+    }
+
+    const projectDir = App.scope === "project" ? App.projectDir : null;
+    const baseDir = projectDir
+      ? Utils.apiSync("pathJoin", projectDir, ".claude", "skills")
+      : Utils.apiSync("pathJoin", Utils.apiSync("getClaudeDir"), "skills");
+    const skillDir = Utils.apiSync("pathJoin", baseDir, name);
     const skillMdPath = Utils.apiSync("pathJoin", skillDir, "SKILL.md");
     Utils.apiSync("writeFile", skillMdPath, content);
     Utils.toast("Skill 已保存", "success");

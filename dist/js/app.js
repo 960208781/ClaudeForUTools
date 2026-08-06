@@ -1,11 +1,19 @@
 /**
  * 主应用逻辑
+ * 统一 scope 管理 — 全局/项目级切换贯穿所有页面
  */
 
 const App = {
   currentPage: "dashboard",
   installStatus: null,
   currentWorkDir: null,
+
+  // === 统一 scope 管理 ===
+  scope: "global",       // "global" | "project"
+  projectDir: null,      // 选中的项目目录
+
+  // scope 依赖的页面列表（这些页面会根据 scope 读取不同配置）
+  scopeAwarePages: ["mcp", "hooks", "commands", "skills", "market", "config"],
 
   // 斜杠命令快捷列表
   slashCommands: [
@@ -62,22 +70,15 @@ const App = {
   },
 
   init() {
-    // 应用主题
     Utils.applyTheme();
 
-    // 加载侧边栏展开状态
     const sidebarExpanded = Utils.store.get("sidebarExpanded", false);
     if (sidebarExpanded) document.getElementById("sidebar").classList.add("expanded");
 
-    // 绑定导航事件
     document.querySelectorAll(".nav-item").forEach((item) => {
-      item.addEventListener("click", () => {
-        const page = item.dataset.page;
-        this.navigate(page);
-      });
+      item.addEventListener("click", () => this.navigate(item.dataset.page));
     });
 
-    // 侧边栏展开/收起
     document.getElementById("sidebarToggle").addEventListener("click", () => {
       const sidebar = document.getElementById("sidebar");
       sidebar.classList.toggle("expanded");
@@ -86,34 +87,112 @@ const App = {
       document.getElementById("toggleIcon").textContent = expanded ? "▶" : "◀";
     });
 
-    // uTools 事件
+    // 绑定 topbar scope 控件
+    this.bindTopbarScope();
+
     utools.onPluginEnter(({ code, type, payload }) => {
       this.handlePluginEnter(code, type, payload);
     });
 
     utools.onPluginOut(() => {
-      // 清理资源
       if (typeof Terminal !== "undefined" && Terminal.cleanup) {
         Terminal.cleanup();
       }
     });
 
-    // 初始检测安装状态
     this.checkInstallStatus();
 
-    // 预先恢复 Terminal 项目（确保 dashboard 首次加载时就有活动会话数据）
     if (typeof Terminal !== "undefined" && Terminal._restoreProjects && !Terminal._restored) {
       Terminal._restored = true;
       Terminal._restoreProjects();
     }
 
-    // 初始导航
     this.navigate(this.currentPage);
   },
 
-  /**
-   * 处理 uTools 进入事件
-   */
+  // === Scope 管理方法 ===
+
+  bindTopbarScope() {
+    document.getElementById("scopeToggleGlobal")?.addEventListener("click", () => {
+      this.setScope("global");
+    });
+    document.getElementById("scopeToggleProject")?.addEventListener("click", () => {
+      if (!this.projectDir) {
+        this.selectProject();
+      } else {
+        this.setScope("project");
+      }
+    });
+    document.getElementById("scopeSelectProject")?.addEventListener("click", () => {
+      this.selectProject();
+    });
+  },
+
+  async selectProject() {
+    const result = await Utils.showOpenDialog({
+      title: "选择项目目录",
+      properties: ["openDirectory"],
+    });
+    if (result && result[0]) {
+      this.projectDir = result[0];
+      this.setScope("project");
+    }
+  },
+
+  setScope(scope) {
+    this.scope = scope;
+    this.updateTopbarScope();
+    // 重新渲染当前页面（如果是 scope 依赖页面）
+    this.navigate(this.currentPage);
+  },
+
+  setProjectDir(dir) {
+    this.projectDir = dir;
+    if (dir) {
+      this.setScope("project");
+    } else {
+      this.setScope("global");
+    }
+  },
+
+  // 获取当前 scope 对应的配置读取参数
+  getConfigScope() {
+    return this.scope === "project" ? "project" : "user";
+  },
+
+  // 获取当前 scope 对应的 MCP scope key
+  getMcpScope() {
+    return this.scope === "project" ? "project" : "global";
+  },
+
+  updateTopbarScope() {
+    const scopeGlobal = document.getElementById("scopeToggleGlobal");
+    const scopeProject = document.getElementById("scopeToggleProject");
+    const projectLabel = document.getElementById("scopeProjectLabel");
+    const selectBtn = document.getElementById("scopeSelectProject");
+
+    if (!scopeGlobal || !scopeProject) return;
+
+    if (this.scope === "project" && this.projectDir) {
+      scopeGlobal.classList.remove("active");
+      scopeProject.classList.add("active");
+      if (projectLabel) {
+        projectLabel.textContent = Utils.baseName(this.projectDir);
+        projectLabel.title = this.projectDir;
+        projectLabel.style.display = "";
+      }
+      if (selectBtn) selectBtn.style.display = "";
+    } else {
+      scopeGlobal.classList.add("active");
+      scopeProject.classList.remove("active");
+      if (projectLabel) {
+        projectLabel.textContent = "";
+        projectLabel.style.display = "none";
+      }
+      if (selectBtn) selectBtn.style.display = "none";
+    }
+  },
+
   handlePluginEnter(code, type, payload) {
     switch (code) {
       case "claude-manager":
@@ -129,11 +208,11 @@ const App = {
         this.navigate("sessions");
         break;
       case "claude-open-dir":
-        // 从窗口匹配进入
         if (type === "window") {
           const workDir = payload?.dir || payload?.path || Utils.store.get("defaultWorkDir", "");
           if (workDir) {
             this.currentWorkDir = workDir;
+            this.setProjectDir(workDir);
             this.navigate("terminal");
             setTimeout(() => {
               if (typeof Terminal !== "undefined" && Terminal.newSession) {
@@ -146,13 +225,15 @@ const App = {
         }
         break;
       case "claude-open-file":
-        // 从文件匹配进入
         if (type === "files" && payload && payload.length > 0) {
           const filePath = payload[0].path;
           const sep = filePath.includes("/") ? "/" : "\\";
           const lastSep = filePath.lastIndexOf(sep);
           const workDir = lastSep > 0 ? filePath.substring(0, lastSep) : "";
-          if (workDir) this.currentWorkDir = workDir;
+          if (workDir) {
+            this.currentWorkDir = workDir;
+            this.setProjectDir(workDir);
+          }
           this.navigate("terminal");
           setTimeout(() => {
             if (typeof Terminal !== "undefined" && Terminal.newSession) {
@@ -163,21 +244,14 @@ const App = {
         break;
     }
 
-    // 设置窗口高度
     utools.setExpendHeight(600);
   },
 
-  /**
-   * 检测 Claude 安装状态
-   */
   async checkInstallStatus() {
     this.installStatus = await Utils.api("checkInstall");
     this.updateTopbarStatus();
   },
 
-  /**
-   * 更新顶部状态栏
-   */
   updateTopbarStatus() {
     const statusEl = document.getElementById("topbarStatus");
     const parts = [];
@@ -190,30 +264,31 @@ const App = {
       }
     }
 
-    // 当前工作目录
     if (this.currentWorkDir) {
       const dirName = Utils.baseName(this.currentWorkDir);
       parts.push(`<span class="status-badge"><span class="dot"></span>${Utils.escapeHtml(dirName)}</span>`);
     }
 
     statusEl.innerHTML = parts.join("");
+    this.updateTopbarScope();
   },
 
-  /**
-   * 页面导航
-   */
   navigate(page) {
     this.currentPage = page;
 
-    // 更新导航高亮
     document.querySelectorAll(".nav-item").forEach((item) => {
       item.classList.toggle("active", item.dataset.page === page);
     });
 
-    // 更新标题
-    document.getElementById("pageTitle").textContent = this.pageTitles[page] || page;
+    // 页面标题带 scope 标识
+    let title = this.pageTitles[page] || page;
+    if (this.scopeAwarePages.includes(page)) {
+      title += this.scope === "project" && this.projectDir
+        ? ` <span class="scope-tag project">📁 ${Utils.baseName(this.projectDir)}</span>`
+        : ` <span class="scope-tag global">🌍 全局</span>`;
+    }
+    document.getElementById("pageTitle").innerHTML = title;
 
-    // 渲染页面 — 先清空内容，再渲染
     const content = document.getElementById("content");
     content.innerHTML = "";
     content.className = (page === "terminal" || page === "sessions") ? "content no-padding" : "content";
@@ -240,16 +315,12 @@ const App = {
     }
   },
 
-  /**
-   * 设置工作目录
-   */
   setWorkDir(dir) {
     this.currentWorkDir = dir;
     this.updateTopbarStatus();
   },
 };
 
-// 启动应用
 document.addEventListener("DOMContentLoaded", () => {
   App.init();
 });

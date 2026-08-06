@@ -1,60 +1,33 @@
 /**
  * 自定义命令管理页面
+ * 读取 App.scope / App.projectDir 决定操作范围
  */
 
 const CommandsPage = {
-  projectDir: null,
-  currentScope: "all",
-
   commandTemplates: [
-    {
-      name: "unit-test",
-      content: `Generate comprehensive unit tests for $ARGUMENTS.\nInclude edge cases and error handling.\nUse the project's existing test framework.\n`,
-    },
-    {
-      name: "fix-bugs",
-      content: `Analyze $ARGUMENTS for bugs and fix them.\nExplain what was wrong and how you fixed it.\n`,
-    },
-    {
-      name: "deploy",
-      content: `1. Run tests\n2. Build production bundle\n3. Deploy to $ARGUMENTS environment\n4. Verify deployment\n`,
-    },
-    {
-      name: "handover",
-      content: `Create a handover document for the current session:\n- Summary of work done\n- Decisions made\n- Incomplete tasks\n- Pitfalls encountered and lessons learned\nSave as HANDOVER.md.\n`,
-    },
-    {
-      name: "code-review",
-      content: `Review the following code thoroughly:\n$ARGUMENTS\n\nCheck for:\n- Security vulnerabilities\n- Performance issues\n- Code style consistency\n- Error handling\n- Test coverage\n\nProvide actionable feedback.\n`,
-    },
-    {
-      name: "refactor",
-      content: `Refactor $ARGUMENTS following these principles:\n- Single Responsibility\n- DRY (Don't Repeat Yourself)\n- Clear naming\n- Minimal public API\n\nPreserve all existing behavior.\n`,
-    },
+    { name: "unit-test", content: `Generate comprehensive unit tests for $ARGUMENTS.\nInclude edge cases and error handling.\nUse the project's existing test framework.\n` },
+    { name: "fix-bugs", content: `Analyze $ARGUMENTS for bugs and fix them.\nExplain what was wrong and how you fixed it.\n` },
+    { name: "deploy", content: `1. Run tests\n2. Build production bundle\n3. Deploy to $ARGUMENTS environment\n4. Verify deployment\n` },
+    { name: "handover", content: `Create a handover document for the current session:\n- Summary of work done\n- Decisions made\n- Incomplete tasks\n- Pitfalls encountered and lessons learned\nSave as HANDOVER.md.\n` },
+    { name: "code-review", content: `Review the following code thoroughly:\n$ARGUMENTS\n\nCheck for:\n- Security vulnerabilities\n- Performance issues\n- Code style consistency\n- Error handling\n- Test coverage\n\nProvide actionable feedback.\n` },
+    { name: "refactor", content: `Refactor $ARGUMENTS following these principles:\n- Single Responsibility\n- DRY (Don't Repeat Yourself)\n- Clear naming\n- Minimal public API\n\nPreserve all existing behavior.\n` },
   ],
 
   render(container) {
-    container.innerHTML = `
-      <div class="flex items-center gap-3 mb-4">
-        <div class="tabs" id="cmdsTabBar" style="margin-bottom:0; border:none">
-          <div class="tab active" data-scope="all">全部</div>
-          <div class="tab" data-scope="user">全局命令</div>
-          <div class="tab" data-scope="project">项目命令</div>
-        </div>
-        <div class="flex-1"></div>
-        <button class="btn sm" id="selectProjectDirCmds">📁 项目目录</button>
-        <span class="text-sm text-muted" id="cmdsProjectDir">未选择</span>
-      </div>
+    const isProject = App.scope === "project" && App.projectDir;
+    const scopeHint = isProject
+      ? `📁 项目级: ${Utils.baseName(App.projectDir)}`
+      : "🌍 全局 (~/.claude/commands/)";
 
+    container.innerHTML = `
       <div class="grid grid-2 mb-4">
         <div class="card">
           <div class="card-header">
-            <div class="card-title">📝 命令列表</div>
+            <div class="card-title">📝 命令列表 <span class="text-xs text-muted ml-2">${scopeHint}</span></div>
             <button class="btn sm primary" id="newCmdBtn">+ 新建命令</button>
           </div>
           <div id="commandsList"></div>
         </div>
-
         <div class="card">
           <div class="card-header">
             <div class="card-title">📋 模板库</div>
@@ -85,15 +58,10 @@ const CommandsPage = {
         <div class="flex items-center gap-2 mb-2">
           <label class="text-sm text-muted">命令名称:</label>
           <input class="input" id="cmdName" placeholder="如: unit-test" style="flex:1" />
-          <label class="text-sm text-muted">作用域:</label>
-          <select class="select" id="cmdScope" style="width:120px">
-            <option value="user">全局</option>
-            <option value="project">项目</option>
-          </select>
         </div>
         <textarea class="textarea" id="cmdContent" style="min-height:200px" placeholder="命令内容...使用 $ARGUMENTS 接收参数"></textarea>
         <div class="text-xs text-muted mt-2">
-          命令文件保存在 ~/.claude/commands/ (全局) 或 .claude/commands/ (项目级)<br>
+          保存位置: ${isProject ? `.claude/commands/ (项目级)` : `~/.claude/commands/ (全局)`}<br>
           使用 $ARGUMENTS 或 $0, $1 接收参数。在 Claude 中输入 /命令名 即可调用。
         </div>
       </div>
@@ -104,38 +72,14 @@ const CommandsPage = {
   },
 
   bindEvents() {
-    document.querySelectorAll('#cmdsTabBar .tab').forEach((el) => {
-      el.addEventListener("click", () => {
-        document.querySelectorAll('#cmdsTabBar .tab').forEach((t) => t.classList.remove("active"));
-        el.classList.add("active");
-        this.currentScope = el.dataset.scope;
-        this.loadCommands();
-      });
-    });
-
-    document.getElementById("selectProjectDirCmds")?.addEventListener("click", async () => {
-      const result = await Utils.showOpenDialog({
-        title: "选择项目目录",
-        properties: ["openDirectory"],
-      });
-      if (result && result[0]) {
-        this.projectDir = result[0];
-        document.getElementById("cmdsProjectDir").textContent = result[0];
-        this.loadCommands();
-      }
-    });
-
     document.getElementById("newCmdBtn")?.addEventListener("click", () => {
       document.getElementById("editorCard").style.display = "block";
       document.getElementById("cmdName").value = "";
       document.getElementById("cmdContent").value = "";
-      document.getElementById("cmdScope").value = "user";
       this.editingPath = null;
     });
-
     document.getElementById("saveCmdBtn")?.addEventListener("click", () => this.saveCommand());
     document.getElementById("deleteCmdBtn")?.addEventListener("click", () => this.deleteCommand());
-
     document.querySelectorAll("[data-template]").forEach((el) => {
       el.addEventListener("click", () => {
         const idx = parseInt(el.dataset.template);
@@ -143,7 +87,6 @@ const CommandsPage = {
         document.getElementById("editorCard").style.display = "block";
         document.getElementById("cmdName").value = tmpl.name;
         document.getElementById("cmdContent").value = tmpl.content;
-        document.getElementById("cmdScope").value = "user";
         this.editingPath = null;
       });
     });
@@ -151,15 +94,17 @@ const CommandsPage = {
 
   loadCommands() {
     const el = document.getElementById("commandsList");
-    const commands = Utils.apiSync("listCommands", this.currentScope, this.projectDir);
+
+    if (App.scope === "project" && !App.projectDir) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📁</div><div class="empty-text">请先在顶部选择项目目录</div></div>`;
+      return;
+    }
+
+    const scope = App.scope; // user or project
+    const commands = Utils.apiSync("listCommands", scope, App.projectDir);
 
     if (!commands || commands.length === 0) {
-      el.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">📝</div>
-          <div class="empty-text">暂无自定义命令</div>
-        </div>
-      `;
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">暂无自定义命令</div></div>`;
       return;
     }
 
@@ -168,11 +113,9 @@ const CommandsPage = {
         <div class="list-item-icon">📄</div>
         <div class="list-item-content">
           <div class="list-item-title">/${Utils.escapeHtml(cmd.name)}</div>
-          <div class="list-item-subtitle">
-            ${cmd.scope === "user" ? "全局" : "项目"} · ${Utils.escapeHtml(cmd.description || "无描述")}
-          </div>
+          <div class="list-item-subtitle">${Utils.escapeHtml(cmd.description || "无描述")}</div>
         </div>
-        <span class="status-badge ${cmd.scope === "user" ? "accent" : "purple"}">${cmd.scope === "user" ? "全局" : "项目"}</span>
+        <span class="status-badge accent">${App.scope === "project" ? "项目" : "全局"}</span>
       </div>
     `).join("");
 
@@ -184,7 +127,6 @@ const CommandsPage = {
           document.getElementById("editorCard").style.display = "block";
           document.getElementById("cmdName").value = cmd.name;
           document.getElementById("cmdContent").value = cmd.content;
-          document.getElementById("cmdScope").value = cmd.scope;
           this.editingPath = cmdPath;
         }
       });
@@ -194,22 +136,18 @@ const CommandsPage = {
   saveCommand() {
     const name = document.getElementById("cmdName").value.trim();
     const content = document.getElementById("cmdContent").value;
-    const scope = document.getElementById("cmdScope").value;
+    if (!name) { Utils.toast("命令名称不能为空", "error"); return; }
 
-    if (!name) {
-      Utils.toast("命令名称不能为空", "error");
+    if (App.scope === "project" && !App.projectDir) {
+      Utils.toast("请先在顶部选择项目目录", "warning");
       return;
     }
 
     let dir;
-    if (scope === "user") {
-      dir = Utils.apiSync("pathJoin", Utils.apiSync("getClaudeDir"), "commands");
+    if (App.scope === "project" && App.projectDir) {
+      dir = Utils.apiSync("pathJoin", App.projectDir, ".claude", "commands");
     } else {
-      if (!this.projectDir) {
-        Utils.toast("请先选择项目目录", "warning");
-        return;
-      }
-      dir = Utils.apiSync("pathJoin", this.projectDir, ".claude", "commands");
+      dir = Utils.apiSync("pathJoin", Utils.apiSync("getClaudeDir"), "commands");
     }
 
     const filePath = Utils.apiSync("pathJoin", dir, `${name}.md`);
@@ -225,10 +163,7 @@ const CommandsPage = {
   },
 
   async deleteCommand() {
-    if (!this.editingPath) {
-      Utils.toast("请先选择一个命令", "warning");
-      return;
-    }
+    if (!this.editingPath) { Utils.toast("请先选择一个命令", "warning"); return; }
     if (await Utils.confirm(`确定删除此命令？`)) {
       const result = Utils.apiSync("deleteCommand", this.editingPath);
       if (result.error) {

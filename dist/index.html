@@ -77,6 +77,12 @@
       <header class="topbar">
         <div class="topbar-title" id="pageTitle">仪表盘</div>
         <div class="topbar-spacer"></div>
+        <div class="topbar-scope" id="topbarScope">
+          <button class="scope-btn active" id="scopeToggleGlobal" title="全局模式 (~/.claude/)">🌍 全局</button>
+          <button class="scope-btn" id="scopeToggleProject" title="项目级模式">📁 项目级</button>
+          <span class="scope-project-label" id="scopeProjectLabel" style="display:none"></span>
+          <button class="btn sm ghost" id="scopeSelectProject" style="display:none" title="切换项目目录">切换</button>
+        </div>
         <div class="topbar-status" id="topbarStatus"></div>
       </header>
 
