@@ -85,6 +85,7 @@ const App = {
     this.bindActivityBar();
     this.bindScope();
     this.bindPalette();
+    this.bindMarkdownLinks();
 
     utools.onPluginEnter(({ code, type, payload }) => {
       this.handlePluginEnter(code, type, payload);
@@ -276,6 +277,66 @@ const App = {
     };
     update();
     setInterval(update, 1000);
+  },
+
+  // === Markdown 链接点击处理（本地文件预览 / 外部链接打开） ===
+  bindMarkdownLinks() {
+    document.addEventListener("click", (e) => {
+      const link = e.target.closest("a.md-link");
+      if (!link) return;
+      const href = link.getAttribute("href");
+      if (!href) return;
+
+      e.preventDefault();
+      this._openMarkdownLink(href);
+    });
+  },
+
+  _openMarkdownLink(href) {
+    // 外部 URL — 打开系统浏览器
+    if (/^https?:\/\//i.test(href)) {
+      utools.shellOpenExternal(href);
+      return;
+    }
+    // mailto / tel
+    if (/^(mailto:|tel:)/i.test(href)) {
+      utools.shellOpenExternal(href);
+      return;
+    }
+
+    // 本地文件路径 — 去掉可能的前缀（file://）
+    let localPath = href;
+    if (/^file:\/\//i.test(href)) {
+      try { localPath = decodeURIComponent(href.replace(/^file:\/\//i, "")); }
+      catch (err) { localPath = href.replace(/^file:\/\//i, ""); }
+    }
+    // 规范化 ~ 开头
+    if (localPath.startsWith("~")) {
+      localPath = Utils.apiSync("getHomeDir") + localPath.slice(1);
+    }
+    // 处理相对路径 → 结合当前工作目录
+    if (!/^[\/\\]|[A-Za-z]:/.test(localPath)) {
+      const base = App.projectDir || App.currentWorkDir || "";
+      if (base) localPath = base + "/" + localPath;
+    }
+
+    // 判断文件是否存在并打开
+    const exists = typeof Utils.apiSync === "function" && Utils.apiSync("fileExists", localPath);
+    if (exists) {
+      // 是文件 → 直接打开；是目录 → 在文件管理器中显示
+      try {
+        utools.shellOpenPath(localPath);
+      } catch (err) {
+        utools.shellShowItemInFolder(localPath);
+      }
+    } else {
+      // 可能是目录编码或不存在，尝试在文件管理器显示父级
+      try {
+        utools.shellShowItemInFolder(localPath);
+      } catch (err) {
+        Utils.toast("无法打开: " + localPath, "error");
+      }
+    }
   },
 
   // === 页面导航 ===
