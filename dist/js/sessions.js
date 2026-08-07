@@ -178,6 +178,13 @@ const SessionsPage = {
 
   loadSessions() {
     this.sessions = Utils.apiSync("listSessions") || [];
+    // 根据 App scope 过滤：项目级时只显示该项目目录的会话
+    if (App.scope === "project" && App.projectDir) {
+      const target = App.projectDir;
+      this.sessions = this.sessions.filter((s) =>
+        s.project === target || s.projectDir === target
+      );
+    }
     this.filteredSessions = [...this.sessions];
     this.renderStatsBar();
     this.renderList();
@@ -186,12 +193,20 @@ const SessionsPage = {
   renderStatsBar() {
     const el = document.getElementById("sessionStatsBar");
     if (!el) return;
+
+    // 顶部显示当前过滤 scope
+    let scopeBadge = '<span class="status-badge accent">🌍 全部会话</span>';
+    if (App.scope === "project" && App.projectDir) {
+      scopeBadge = '<span class="status-badge accent">📁 ' + Utils.escapeHtml(Utils.baseName(App.projectDir)) + '</span>';
+    }
+
     const total = this.sessions.length;
     const totalMsgs = this.sessions.reduce((s, x) => s + (x.messageCount || 0), 0);
     const totalSize = this.sessions.reduce((s, x) => s + (x.size || 0), 0);
     const projects = new Set(this.sessions.map((s) => s.projectDir)).size;
-    el.innerHTML = 
-      '<span class="status-badge accent">📊 ' + total + ' 会话</span>' +
+    el.innerHTML =
+      scopeBadge +
+      '<span class="status-badge">📊 ' + total + ' 会话</span>' +
       '<span class="status-badge">💬 ' + totalMsgs + ' 消息</span>' +
       '<span class="status-badge">📁 ' + projects + ' 项目</span>' +
       '<span class="status-badge">💾 ' + Utils.formatSize(totalSize) + '</span>';

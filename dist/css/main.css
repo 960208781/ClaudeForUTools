@@ -582,16 +582,20 @@ body.light-theme .status-bar { color: #fff; }
 /* ============================================================
    会话历史 / 项目折叠组
    ============================================================ */
-.sessions-layout { display: flex; height: 100%; }
+.sessions-layout { display: flex; height: 100%; position: relative; }
 .sessions-main { flex: 1; overflow-y: auto; padding: 12px; min-width: 0; }
 .sessions-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .sessions-stats-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.sessions-detail { width: 42%; min-width: 280px; overflow-y: auto; padding: 12px; border-left: 1px solid var(--border-color); background: var(--bg-primary); }
+.sessions-detail {
+  width: 42%; min-width: 300px; flex-shrink: 0; overflow-y: auto;
+  background: var(--bg-primary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-md); display: flex; flex-direction: column;
+}
 .sessions-detail.maximized { position: fixed; inset: 0; z-index: 500; width: 100%; background: var(--bg-primary); }
-.sessions-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.sessions-detail-messages { display: flex; flex-direction: column; gap: 8px; }
+.sessions-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+.sessions-detail-messages { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 
-.collapsible-arrow { font-size: 10px; color: var(--text-tertiary); transition: transform 0.15s; }
+.collapsible-arrow { font-size: 8px; color: var(--text-tertiary); }
 .collapsible-section.collapsed .collapsible-arrow { transform: rotate(-90deg); }
 .collapsible-section.collapsed .collapsible-body { display: none; }
 
@@ -660,3 +664,72 @@ body.light-theme .status-bar { color: #fff; }
 .monitor-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; }
 .monitor-value { font-size: 20px; font-weight: 700; font-family: var(--font-mono); }
 .monitor-label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ============================================================
+   会话详情面板（统计 / 折线图 / 检查器 / 消息）
+   ============================================================ */
+.sessions-detail-stats { padding: 10px 12px; max-height: 300px; overflow-y: auto; }
+.sessions-detail-info { padding: 10px 14px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+.sessions-detail-chart { padding: 8px 12px; }
+
+.detail-info-row { display: flex; align-items: flex-start; gap: 8px; padding: 2px 0; font-size: 10px; }
+.detail-info-label { color: var(--text-tertiary); min-width: 55px; flex-shrink: 0; }
+.detail-info-value { color: var(--text-secondary); word-break: break-all; }
+.detail-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 10px; }
+.detail-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px; background: var(--bg-tertiary); border-radius: 5px; }
+.detail-stat-val { font-size: 11px; font-weight: 600; color: var(--text-primary); }
+.detail-stat-label { font-size: 8px; color: var(--text-tertiary); }
+.detail-token-breakdown { margin-bottom: 8px; }
+.detail-tool-list { margin-bottom: 8px; }
+.detail-tool-title { font-size: 10px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+.detail-cost, .detail-models { font-size: 10px; color: var(--text-tertiary); padding: 2px 0; }
+.detail-path { font-size: 10px; color: var(--text-tertiary); padding: 2px 0; word-break: break-all; font-family: var(--font-mono); }
+
+.token-bar-row, .tool-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 10px; }
+.token-label, .tool-name { width: 50px; color: var(--text-tertiary); flex-shrink: 0; text-align: right; }
+.token-bar-bg, .tool-bar-bg { flex: 1; height: 10px; background: var(--bg-tertiary); border-radius: 5px; overflow: hidden; }
+.token-bar { height: 100%; border-radius: 5px; transition: width 0.3s; }
+.token-bar-input { background: var(--accent); }
+.token-bar-output { background: var(--success); }
+.token-bar-cache { background: var(--purple); }
+.token-val, .tool-val { width: 50px; color: var(--text-secondary); font-size: 9px; flex-shrink: 0; }
+.tool-bar { height: 100%; background: var(--warning); border-radius: 5px; transition: width 0.3s; }
+
+.detail-timeline { display: flex; flex-direction: column; gap: 8px; }
+.chart-container { background: var(--bg-tertiary); border-radius: 6px; padding: 8px; }
+.chart-title { font-size: 10px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+.chart-axis { display: flex; justify-content: space-between; font-size: 8px; color: var(--text-muted); margin-top: 2px; }
+
+/* 会话详情折叠分区 */
+.collapsible-section { border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 8px; overflow: hidden; flex-shrink: 0; }
+.collapsible-header {
+  display: flex; align-items: center; gap: 6px; padding: 8px 12px; cursor: pointer;
+  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  background: var(--bg-tertiary); transition: all var(--transition); user-select: none;
+}
+.collapsible-header:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* 检查器面板 */
+.sessions-detail-inspector { padding: 8px 12px; }
+.inspector-body { padding: 8px 12px; }
+.inspector-row { display: flex; align-items: flex-start; gap: 8px; padding: 3px 0; font-size: 10px; }
+.inspector-label { color: var(--text-tertiary); min-width: 50px; flex-shrink: 0; text-align: right; }
+.inspector-value { color: var(--text-secondary); word-break: break-all; }
+.inspector-section { font-size: 10px; font-weight: 600; color: var(--text-secondary); margin: 8px 0 3px; padding-bottom: 2px; border-bottom: 1px solid var(--border-color); }
+.inspector-token-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 6px; }
+.inspector-token { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px; background: var(--bg-secondary); border-radius: 4px; }
+.inspector-token-val { font-size: 11px; font-weight: 600; color: var(--text-primary); }
+.inspector-token-val.accent { color: var(--accent); }
+.inspector-token-label { font-size: 8px; color: var(--text-tertiary); }
+.inspector-preview, .inspector-json, .inspector-raw {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary);
+  background: var(--bg-primary); padding: 6px 8px; border-radius: 4px;
+  white-space: pre-wrap; word-break: break-all; user-select: text; margin: 2px 0;
+}
+.inspector-preview { max-height: 150px; overflow-y: auto; }
+.inspector-json { max-height: 100px; overflow-y: auto; }
+.inspector-raw { max-height: 200px; overflow-y: auto; }
+
+/* 会话右键菜单分隔/危险 */
+.ctx-menu-divider { height: 1px; background: var(--border-color); margin: 2px 0; }
+.ctx-menu-item.danger:hover { background: var(--danger-bg); color: var(--danger); }

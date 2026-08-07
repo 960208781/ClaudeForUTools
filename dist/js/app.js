@@ -11,7 +11,7 @@ const App = {
   // === 统一 scope 管理 ===
   scope: "global",
   projectDir: null,
-  scopeAwarePages: ["mcp", "hooks", "commands", "skills", "market", "config"],
+  scopeAwarePages: ["mcp", "hooks", "commands", "skills", "market", "config", "sessions"],
 
   // 命令面板索引
   paletteItems: [],
