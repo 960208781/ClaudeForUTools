@@ -130,6 +130,16 @@ const App = {
       else this.setScope("project");
     });
     document.getElementById("scopeSelectProject")?.addEventListener("click", () => this.selectProject());
+
+    // 主题切换
+    document.getElementById("themeToggle")?.addEventListener("click", () => this.toggleTheme());
+  },
+
+  toggleTheme() {
+    const isLight = document.body.classList.contains("light-theme");
+    Utils.store.set("theme", isLight ? "dark" : "light");
+    Utils.applyTheme();
+    Utils.toast(isLight ? "已切换为暗色主题" : "已切换为亮色主题", "success");
   },
 
   async selectProject() {

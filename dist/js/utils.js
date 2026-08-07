@@ -305,6 +305,15 @@ const Utils = {
    */
   renderMarkdown(text) {
     if (!text) return "";
+
+    // 0. 移除 ANSI 转义序列（如 /context 输出中的颜色控制码），避免泄漏为可见文本
+    //    同时清理残留控制字符
+    text = String(text)
+      .replace(/\x1b\[[0-9;]*[A-Za-z]/g, "")   // CSI 序列
+      .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "") // OSC 序列 (如 0;title)
+      .replace(/\x1b[()][AB012]/g, "")          // 字符集切换
+      .replace(/\x1b[=>78]/g, "")
+      .replace(/[\x00-\x08\x0e-\x1f\x7f]/g, ""); // 其余控制字符
     
     // 1. 提取代码块（保护，避免被后续处理破坏）
     var codeBlocks = [];
