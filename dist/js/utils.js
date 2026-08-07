@@ -313,7 +313,12 @@ const Utils = {
       .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "") // OSC 序列 (如 0;title)
       .replace(/\x1b[()][AB012]/g, "")          // 字符集切换
       .replace(/\x1b[=>78]/g, "")
-      .replace(/[\x00-\x08\x0e-\x1f\x7f]/g, ""); // 其余控制字符
+      .replace(/[\x00-\x08\x0e-\x1f\x7f]/g, ""); // 其余控制字符（含残留 ESC）
+
+    // 0b. 清理 ESC 已被移除后残留的 ANSI 参数文本（如 [38;2;153;153;153m [39m [1m [22m）
+    //     先处理 [1m] → ] （末尾带 ] 的），再处理单独的 [数字;m
+    text = text.replace(/\[[\d;]*m\]/g, "]");
+    text = text.replace(/\[[\d;]*m/g, "");
     
     // 1. 提取代码块（保护，避免被后续处理破坏）
     var codeBlocks = [];

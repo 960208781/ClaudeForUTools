@@ -203,8 +203,9 @@
   border-left: 3px solid var(--accent); background: var(--bg-primary);
   color: var(--text-secondary);
 }
-.chat-msg-bubble .md-table .md-th { background: var(--bg-tertiary); color: var(--text-primary); }
-.chat-msg-bubble .md-table .md-td { color: var(--text-secondary); }
+.chat-msg-bubble .md-table .md-th { background: var(--bg-tertiary); color: var(--text-primary); font-weight: 600; }
+.chat-msg-bubble .md-table .md-td { color: var(--text-primary); }
+.chat-msg-bubble .md-table tr:nth-child(even) .md-td { background: rgba(255,255,255,0.02); }
 .chat-msg-bubble strong { color: var(--text-primary); }
 .chat-msg-bubble .md-link { color: var(--accent); }
 

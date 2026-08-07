@@ -309,6 +309,9 @@ const SessionsPage = {
     menu.style.top = e.clientY + "px";
     var self = this;
     menu.innerHTML =
+      '<div class="ctx-menu-item" data-act="properties">ℹ️ 会话属性</div>' +
+      '<div class="ctx-menu-item" data-act="copyId">📋 复制 Session ID</div>' +
+      '<div class="ctx-menu-divider"></div>' +
       '<div class="ctx-menu-item" data-act="resume">▶️ 恢复会话</div>' +
       '<div class="ctx-menu-item" data-act="locate">📂 定位文件</div>' +
       '<div class="ctx-menu-item" data-act="export">📤 导出 Markdown</div>' +
@@ -324,6 +327,11 @@ const SessionsPage = {
         if (act === "resume") self._resumeSession(session);
         else if (act === "locate") utools.shellShowItemInFolder(session.filePath);
         else if (act === "export") self._exportSession(session);
+        else if (act === "copyId") {
+          utools.copyText(session.id);
+          Utils.toast("Session ID 已复制: " + session.id, "success");
+        }
+        else if (act === "properties") self._showProperties(session);
         else if (act === "delete") {
           Utils.confirm("确定删除会话？此操作不可恢复。").then(function(ok) {
             if (ok) self._deleteSession(session);
@@ -339,6 +347,49 @@ const SessionsPage = {
         document.removeEventListener("click", close);
       });
     }, 0);
+  },
+
+  _showProperties(session) {
+    var stats = Utils.apiSync("getSessionStats", session.filePath);
+    var costCny = session.cost ? (session.cost * 7.2).toFixed(2) : "0.00";
+    var costUsd = session.cost ? session.cost.toFixed(4) : "0.0000";
+
+    var rows = [
+      ["🆔 Session ID", session.id],
+      ["💬 摘要", session.summary || "(无)"],
+      ["📁 项目路径", session.project || "(未知)"],
+      ["📄 编码目录", session.projectDir || "(未知)"],
+      ["📂 文件路径", session.filePath],
+      ["📊 消息数", String(session.messageCount || 0)],
+      ["💾 文件大小", Utils.formatSize(session.size || 0)],
+      ["🕐 最后修改", Utils.formatDateTime(session.lastModified)],
+      ["💰 费用", "$" + costUsd + " / ¥" + costCny],
+    ];
+
+    if (stats) {
+      rows.push(["⏱️ 总耗时", Utils.formatDuration(stats.durationMs)]);
+      rows.push(["📊 Token 总计", String(stats.totalTokens || 0)]);
+      rows.push(["🔧 工具调用", String(stats.toolCallCount || 0)]);
+      if (stats.models && stats.models.length > 0) {
+        rows.push(["🧠 使用模型", stats.models.join(", ")]);
+      }
+    }
+
+    var rowsHtml = rows.map(function(r) {
+      return '<div class="detail-info-row"><span class="detail-info-label">' + Utils.escapeHtml(r[0]) + '</span><span class="detail-info-value user-select-text">' + Utils.escapeHtml(r[1]) + '</span></div>';
+    }).join("");
+
+    var { overlay, close } = Utils.modal(
+      "ℹ️ 会话属性",
+      '<div class="sessions-detail-info">' + rowsHtml + '</div>',
+      '<button class="btn" data-cancel>关闭</button><button class="btn primary" data-copy-id>📋 复制 Session ID</button>'
+    );
+
+    overlay.querySelector("[data-copy-id]").onclick = function() {
+      utools.copyText(session.id);
+      Utils.toast("Session ID 已复制", "success");
+    };
+    overlay.querySelector("[data-cancel]").onclick = close;
   },
 
   _renderSessionItem(s) {
