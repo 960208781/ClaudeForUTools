@@ -184,6 +184,36 @@ html, body {
   border-radius: 4px; color: var(--text-secondary); white-space: nowrap;
 }
 
+/* 项目标签栏 */
+.project-tabs-wrap { display: flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0; }
+.project-tabs { display: flex; align-items: center; gap: 4px; overflow-x: auto; max-width: 100%; flex: 1; min-width: 0; scrollbar-width: thin; }
+.project-tabs::-webkit-scrollbar { height: 3px; }
+.project-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 5px; cursor: pointer; flex-shrink: 0;
+  font-size: 12px; font-weight: 500; color: var(--text-secondary);
+  background: var(--bg-tertiary); border: 1px solid var(--border-color);
+  transition: all var(--transition); white-space: nowrap; max-width: 180px;
+}
+.project-tab:hover { background: var(--bg-hover); color: var(--text-primary); }
+.project-tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+.project-tab-icon { font-size: 12px; }
+.project-tab-name { overflow: hidden; text-overflow: ellipsis; }
+.project-tab-close {
+  font-size: 10px; color: var(--text-tertiary); cursor: pointer; padding: 0 2px; border-radius: 3px; flex-shrink: 0;
+}
+.project-tab-close:hover { color: var(--danger); background: var(--danger-bg); }
+.project-tab-add {
+  display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 5px; cursor: pointer; flex-shrink: 0;
+    font-size: 14px; color: var(--text-tertiary); background: transparent; border: 1px dashed var(--border-color);
+    transition: all var(--transition);
+  }
+  .project-tab-add:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+  .project-tabs-empty { color: var(--text-tertiary); font-size: 11px; padding: 0 8px; white-space: nowrap; }
+  border-radius: 4px; color: var(--text-secondary); white-space: nowrap;
+}
+
 /* scope 切换 */
 .scope-switch {
   display: flex; align-items: center; gap: 4px;

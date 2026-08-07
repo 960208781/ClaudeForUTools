@@ -379,6 +379,9 @@ const Terminal = {
 
   // === 项目侧边栏 ===
   renderProjectList() {
+    // 同步顶部栏项目标签（无论是否在对话页面）
+    if (typeof App !== "undefined" && App.renderProjectTabs) App.renderProjectTabs();
+
     const listEl = document.getElementById("projectList");
     if (!listEl) return;
 

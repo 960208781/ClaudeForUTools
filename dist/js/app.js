@@ -86,6 +86,7 @@ const App = {
     this.bindScope();
     this.bindPalette();
     this.bindMarkdownLinks();
+    this.bindProjectTabs();
 
     utools.onPluginEnter(({ code, type, payload }) => {
       this.handlePluginEnter(code, type, payload);
@@ -141,6 +142,56 @@ const App = {
     Utils.store.set("theme", isLight ? "dark" : "light");
     Utils.applyTheme();
     Utils.toast(isLight ? "已切换为暗色主题" : "已切换为亮色主题", "success");
+  },
+
+  // === 项目标签栏（顶部栏多项目） ===
+  bindProjectTabs() {
+    document.getElementById("projectTabAdd")?.addEventListener("click", () => {
+      if (typeof Terminal !== "undefined" && Terminal.addProject) Terminal.addProject();
+    });
+  },
+
+  renderProjectTabs() {
+    const el = document.getElementById("projectTabs");
+    if (!el) return;
+
+    const projects = (typeof Terminal !== "undefined" && Terminal.projects) ? Terminal.projects : [];
+
+    if (projects.length === 0) {
+      el.innerHTML = '<span class="project-tabs-empty">点击 ＋ 添加项目</span>';
+      return;
+    }
+
+    el.innerHTML = projects.map((p) => {
+      const isActive = p.id === Terminal.activeProjectId;
+      const name = Utils.escapeHtml(p.name || Utils.baseName(p.workDir) || "项目");
+      return `<div class="project-tab ${isActive ? "active" : ""}" data-proj-id="${p.id}" title="${Utils.escapeHtml(p.workDir)}">
+        <span class="project-tab-icon">📁</span>
+        <span class="project-tab-name">${name}</span>
+        <span class="project-tab-close" data-close-id="${p.id}" title="关闭">✕</span>
+      </div>`;
+    }).join("");
+
+    // 点击切换项目
+    el.querySelectorAll("[data-proj-id]").forEach((tab) => {
+      tab.addEventListener("click", (e) => {
+        if (e.target.closest("[data-close-id]")) return;
+        if (typeof Terminal !== "undefined" && Terminal.switchProject) {
+          Terminal.switchProject(tab.dataset.projId);
+        }
+      });
+    });
+
+    // 关闭项目
+    el.querySelectorAll("[data-close-id]").forEach((closeBtn) => {
+      closeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = closeBtn.dataset.closeId;
+        if (typeof Terminal !== "undefined" && Terminal.closeProject) {
+          Terminal.closeProject(id);
+        }
+      });
+    });
   },
 
   async selectProject() {

@@ -74,13 +74,15 @@
           <span class="scope-tag global" id="scopeTag">🌍 全局</span>
         </div>
         <div class="command-bar-center">
-          <button class="palette-trigger" id="paletteTrigger" title="命令面板 (Ctrl+P)">
-            <span class="palette-icon">🔍</span>
-            <span class="palette-text">搜索页面或操作...</span>
-            <kbd class="kbd">⌘P</kbd>
-          </button>
+          <div class="project-tabs-wrap">
+            <div class="project-tabs" id="projectTabs"></div>
+            <button class="project-tab-add" id="projectTabAdd" title="添加项目 (⌘N)">＋</button>
+          </div>
         </div>
         <div class="command-bar-right">
+          <button class="btn-icon ghost" id="paletteTrigger" title="命令面板 (Ctrl+P)">
+            <span class="palette-icon">🔍</span>
+          </button>
           <div class="scope-switch" id="topbarScope">
             <button class="scope-btn active" id="scopeToggleGlobal" title="全局模式 (~/.claude/)">🌍</button>
             <button class="scope-btn" id="scopeToggleProject" title="项目级模式">📁</button>

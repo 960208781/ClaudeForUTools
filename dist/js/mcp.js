@@ -68,7 +68,7 @@ const McpPage = {
     }
 
     el.innerHTML = entries.map(([name, cfg]) => `
-      <div class="list-item">
+      <div class="list-item" data-server="${Utils.escapeHtml(name)}">
         <div class="list-item-icon">🔌</div>
         <div class="list-item-content">
           <div class="list-item-title">${Utils.escapeHtml(name)}</div>
@@ -95,6 +95,55 @@ const McpPage = {
         }
       });
     });
+    // 右键菜单
+    el.querySelectorAll("[data-server]").forEach((item) => {
+      item.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const name = item.dataset.server;
+        const cfg = config.mcpServers[name];
+        if (cfg) this._showContextMenu(e, name, cfg);
+      });
+    });
+  },
+
+  _showContextMenu(e, name, cfg) {
+    const existing = document.querySelector(".ctx-menu");
+    if (existing) existing.remove();
+    const menu = document.createElement("div");
+    menu.className = "ctx-menu";
+    menu.style.left = e.clientX + "px";
+    menu.style.top = e.clientY + "px";
+    const self = this;
+    const mcpScope = App.getMcpScope();
+    const configPath = mcpScope === "project" && App.projectDir
+      ? Utils.apiSync("pathJoin", App.projectDir, ".mcp.json")
+      : Utils.apiSync("pathJoin", Utils.apiSync("getClaudeDir"), ".mcp.json");
+    menu.innerHTML =
+      '<div class="ctx-menu-item" data-act="edit">✏️ 编辑</div>' +
+      '<div class="ctx-menu-item" data-act="locate">📂 定位配置文件</div>' +
+      '<div class="ctx-menu-item" data-act="copy">📋 复制命令</div>' +
+      '<div class="ctx-menu-divider"></div>' +
+      '<div class="ctx-menu-item danger" data-act="delete">🗑️ 删除</div>';
+    document.body.appendChild(menu);
+    menu.querySelectorAll(".ctx-menu-item").forEach((mi) => {
+      mi.addEventListener("click", () => {
+        const act = mi.dataset.act;
+        menu.remove();
+        if (act === "edit") self.editServer(name);
+        else if (act === "locate") utools.shellShowItemInFolder(configPath);
+        else if (act === "copy") {
+          const cmd = (cfg.command || "") + " " + ((cfg.args || []).join(" "));
+          utools.copyText(cmd.trim());
+          Utils.toast("已复制命令", "success");
+        }
+        else if (act === "delete") {
+          Utils.confirm(`确定删除服务器 "${name}"？`).then((ok) => { if (ok) self.deleteServer(name); });
+        }
+      });
+    });
+    setTimeout(() => {
+      document.addEventListener("click", function close() { menu.remove(); document.removeEventListener("click", close); });
+    }, 0);
   },
 
   loadEditor() {

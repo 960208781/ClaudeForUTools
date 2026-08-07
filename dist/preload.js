@@ -1054,30 +1054,40 @@ function listCommands(scope, projectDir) {
     }
   }
 
-  for (const { path: dirPath, scope: cmdScope } of dirs) {
-    if (!fs.existsSync(dirPath)) continue;
+  // 递归扫描 .md 文件，保留命名空间（如 XYWorkFlow:init, opsx:explore）
+  function scanDir(dirPath, cmdScope, prefix) {
+    if (!fs.existsSync(dirPath)) return;
     try {
-      const files = fs.readdirSync(dirPath);
-      for (const file of files) {
-        if (!file.endsWith(".md")) continue;
-        const filePath = path.join(dirPath, file);
-        const stat = fs.statSync(filePath);
-        const name = path.basename(file, ".md");
-        const content = fs.readFileSync(filePath, "utf-8");
-        // 提取第一行作为描述
-        const firstLine = content.split("\n").find((l) => l.trim()) || "";
-        commands.push({
-          name,
-          scope: cmdScope,
-          path: filePath,
-          description: firstLine.replace(/^#\s*/, "").substring(0, 100),
-          content,
-          lastModified: stat.mtime.toISOString(),
-        });
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith(".")) continue; // 跳过 .DS_Store 等
+        const fullPath = path.join(dirPath, entry.name);
+        if (entry.isDirectory()) {
+          // 递归子目录，命名空间用 : 分隔
+          scanDir(fullPath, cmdScope, prefix ? prefix + ":" + entry.name : entry.name);
+        } else if (entry.isFile() && entry.name.endsWith(".md")) {
+          const name = path.basename(entry.name, ".md");
+          const fullName = prefix ? prefix + ":" + name : name;
+          const stat = fs.statSync(fullPath);
+          const content = fs.readFileSync(fullPath, "utf-8");
+          const firstLine = content.split("\n").find((l) => l.trim()) || "";
+          commands.push({
+            name: fullName,
+            scope: cmdScope,
+            path: fullPath,
+            description: firstLine.replace(/^#\s*/, "").substring(0, 100),
+            content,
+            lastModified: stat.mtime.toISOString(),
+          });
+        }
       }
     } catch (e) {
       // skip
     }
+  }
+
+  for (const { path: dirPath, scope: cmdScope } of dirs) {
+    scanDir(dirPath, cmdScope, "");
   }
 
   return commands;
@@ -1114,41 +1124,49 @@ function listSkills(projectDir) {
   if (!fs.existsSync(baseDir)) return [];
 
   const skills = [];
-  try {
-    const entries = fs.readdirSync(baseDir);
-    for (const entry of entries) {
-      const entryPath = path.join(baseDir, entry);
-      if (!fs.statSync(entryPath).isDirectory()) continue;
 
-      // 读取 SKILL.md
-      const skillMdPath = path.join(entryPath, "SKILL.md");
-      let name = entry;
-      let description = "";
-      let content = "";
-
-      if (fs.existsSync(skillMdPath)) {
-        content = fs.readFileSync(skillMdPath, "utf-8");
-        // 提取名称和描述
-        const nameMatch = content.match(/^#\s+(.+)$/m);
-        if (nameMatch) name = nameMatch[1];
-        const descMatch = content.match(/^>?\s*(.+)$/m);
-        if (descMatch) description = descMatch[1];
+  // 递归扫描，配合命名空间（如 _frameworks/feature-strategy → _frameworks:feature-strategy）
+  function scanSkillDir(dirPath, prefix) {
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith(".")) continue;
+        const entryPath = path.join(dirPath, entry.name);
+        if (entry.isDirectory()) {
+          // 若该目录直接含 SKILL.md，视为一个 skill
+          const nestedSkillMd = path.join(entryPath, "SKILL.md");
+          if (fs.existsSync(nestedSkillMd)) {
+            let content = "";
+            let name = entry.name;
+            let description = "";
+            try {
+              content = fs.readFileSync(nestedSkillMd, "utf-8");
+              const nameMatch = content.match(/^#\s+(.+)$/m);
+              if (nameMatch) name = nameMatch[1];
+              const descMatch = content.match(/^>?\s*(.+)$/m);
+              if (descMatch) description = descMatch[1];
+            } catch (e) {}
+            skills.push({
+              name,
+              dirName: prefix ? prefix + ":" + entry.name : entry.name,
+              path: entryPath,
+              description,
+              content,
+              skillMdPath: nestedSkillMd,
+              scope: projectDir ? "project" : "user",
+            });
+          } else {
+            // 不含 SKILL.md，继续下钻（可能是嵌套技能）
+            scanSkillDir(entryPath, prefix ? prefix + ":" + entry.name : entry.name);
+          }
+        }
       }
-
-      skills.push({
-        name,
-        dirName: entry,
-        path: entryPath,
-        description,
-        content,
-        skillMdPath: fs.existsSync(skillMdPath) ? skillMdPath : null,
-        scope: projectDir ? "project" : "user",
-      });
+    } catch (e) {
+      // skip
     }
-  } catch (e) {
-    // skip
   }
 
+  scanSkillDir(baseDir, "");
   return skills;
 }
 

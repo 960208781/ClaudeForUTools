@@ -130,7 +130,56 @@ const CommandsPage = {
           this.editingPath = cmdPath;
         }
       });
+      item.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const cmdPath = item.dataset.cmdPath;
+        const cmd = commands.find((c) => c.path === cmdPath);
+        if (cmd) this._showContextMenu(e, cmd);
+      });
     });
+  },
+
+  _showContextMenu(e, cmd) {
+    const existing = document.querySelector(".ctx-menu");
+    if (existing) existing.remove();
+    const menu = document.createElement("div");
+    menu.className = "ctx-menu";
+    menu.style.left = e.clientX + "px";
+    menu.style.top = e.clientY + "px";
+    const self = this;
+    menu.innerHTML =
+      '<div class="ctx-menu-item" data-act="edit">✏️ 编辑</div>' +
+      '<div class="ctx-menu-item" data-act="locate">📂 定位文件</div>' +
+      '<div class="ctx-menu-item" data-act="copy">📋 复制命令名</div>' +
+      '<div class="ctx-menu-divider"></div>' +
+      '<div class="ctx-menu-item danger" data-act="delete">🗑️ 删除</div>';
+    document.body.appendChild(menu);
+    menu.querySelectorAll(".ctx-menu-item").forEach((mi) => {
+      mi.addEventListener("click", () => {
+        const act = mi.dataset.act;
+        menu.remove();
+        if (act === "edit") {
+          document.getElementById("editorCard").style.display = "block";
+          document.getElementById("cmdName").value = cmd.name;
+          document.getElementById("cmdContent").value = cmd.content;
+          self.editingPath = cmd.path;
+        }
+        else if (act === "locate") utools.shellShowItemInFolder(cmd.path);
+        else if (act === "copy") { utools.copyText("/" + cmd.name); Utils.toast("已复制: /" + cmd.name, "success"); }
+        else if (act === "delete") {
+          Utils.confirm(`确定删除命令 /${cmd.name}？`).then((ok) => {
+            if (ok) {
+              Utils.apiSync("deleteCommand", cmd.path);
+              Utils.toast("命令已删除", "success");
+              self.loadCommands();
+            }
+          });
+        }
+      });
+    });
+    setTimeout(() => {
+      document.addEventListener("click", function close() { menu.remove(); document.removeEventListener("click", close); });
+    }, 0);
   },
 
   saveCommand() {

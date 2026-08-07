@@ -133,7 +133,52 @@ const SkillsPage = {
         const skill = skills.find((s) => s.dirName === dirName);
         this.showDetail(skill);
       });
+      item.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const dirName = item.dataset.skill;
+        const skill = skills.find((s) => s.dirName === dirName);
+        if (skill) this._showContextMenu(e, skill);
+      });
     });
+  },
+
+  _showContextMenu(e, skill) {
+    const existing = document.querySelector(".ctx-menu");
+    if (existing) existing.remove();
+    const menu = document.createElement("div");
+    menu.className = "ctx-menu";
+    menu.style.left = e.clientX + "px";
+    menu.style.top = e.clientY + "px";
+    const self = this;
+    menu.innerHTML =
+      '<div class="ctx-menu-item" data-act="edit">✏️ 编辑</div>' +
+      '<div class="ctx-menu-item" data-act="locate">📂 定位文件</div>' +
+      '<div class="ctx-menu-item" data-act="copy">📋 复制名称</div>' +
+      '<div class="ctx-menu-divider"></div>' +
+      '<div class="ctx-menu-item danger" data-act="delete">🗑️ 删除</div>';
+    document.body.appendChild(menu);
+    menu.querySelectorAll(".ctx-menu-item").forEach((mi) => {
+      mi.addEventListener("click", () => {
+        const act = mi.dataset.act;
+        menu.remove();
+        if (act === "edit") self.showDetail(skill);
+        else if (act === "locate" && skill.skillMdPath) utools.shellShowItemInFolder(skill.skillMdPath);
+        else if (act === "locate" && skill.path) utools.shellShowItemInFolder(skill.path);
+        else if (act === "copy") { utools.copyText(skill.dirName); Utils.toast("已复制: " + skill.dirName, "success"); }
+        else if (act === "delete") {
+          Utils.confirm('确定删除 Skill "' + skill.dirName + '"？此操作不可恢复。').then((ok) => {
+            if (ok) {
+              Utils.apiSync("deleteSkill", skill.dirName, App.scope === "project" ? App.projectDir : null);
+              Utils.toast("Skill 已删除", "success");
+              self.loadSkills();
+            }
+          });
+        }
+      });
+    });
+    setTimeout(() => {
+      document.addEventListener("click", function close() { menu.remove(); document.removeEventListener("click", close); });
+    }, 0);
   },
 
   showDetail(skill) {
