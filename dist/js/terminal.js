@@ -13,14 +13,6 @@ const Terminal = {
     this.container = container;
     container.innerHTML = `
       <div class="chat-layout">
-        <aside class="chat-sidebar" id="chatSidebar">
-          <div class="chat-sidebar-header">
-            <span class="chat-sidebar-title">项目</span>
-            <button class="btn sm primary" id="newProjectBtn" title="添加项目">+ 项目</button>
-          </div>
-          <div class="chat-sidebar-list" id="projectList"></div>
-        </aside>
-        <div class="split-divider" id="chatSplitDivider"></div>
         <div class="chat-main" id="chatMain">
           <div class="chat-statusline" id="chatStatusline">就绪</div>
           <div class="chat-tabs-bar" id="chatTabsBar"></div>
@@ -85,7 +77,8 @@ const Terminal = {
   },
 
   bindEvents() {
-    document.getElementById("newProjectBtn").addEventListener("click", () => {
+    // 项目添加按钮已移至顶部栏（projectTabAdd），此处兼容旧引用
+    document.getElementById("newProjectBtn")?.addEventListener("click", () => {
       this.addProject();
     });
 
